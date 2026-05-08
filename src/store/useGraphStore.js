@@ -1,4 +1,4 @@
-// useGraphStore.js — Single Zustand store for the entire graph
+
 import { create } from 'zustand'
 import { addEdge, applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import { propagateGraph, countParams } from '../engine/shapeEngine.js'
@@ -119,7 +119,6 @@ export const useGraphStore = create((set, get) => {
     shapeResults: initialResults,
     rippleNodes: new Set(),
 
-    // ── Node/Edge mutations (React Flow) ──
     onNodesChange: (changes) => {
       set(state => ({ nodes: applyNodeChanges(changes, state.nodes) }))
     },
@@ -138,7 +137,7 @@ export const useGraphStore = create((set, get) => {
       })
     },
 
-    // ── Add a new node ──
+
     addNode: (layerType, position) => {
       nodeCounter++
       const id = `node-${nodeCounter}`
@@ -160,7 +159,7 @@ export const useGraphStore = create((set, get) => {
       return id
     },
 
-    // ── Update node config (Inspector) ──
+
     updateNodeConfig: (nodeId, newConfig) => {
       set(state => {
         const newNodes = state.nodes.map(n =>
@@ -179,7 +178,7 @@ export const useGraphStore = create((set, get) => {
       })
     },
 
-    // ── Update input shape ──
+    
     updateInputShape: (newShape) => {
       set(state => {
         const results = propagateGraph(state.nodes, state.edges, newShape)
@@ -187,7 +186,7 @@ export const useGraphStore = create((set, get) => {
       })
     },
 
-    // ── Delete a node ──
+  
     deleteNode: (nodeId) => {
       set(state => {
         const newNodes = state.nodes.filter(n => n.id !== nodeId)
@@ -202,16 +201,16 @@ export const useGraphStore = create((set, get) => {
       })
     },
 
-    // ── Format toggle ──
+
     toggleFormat: () => {
       set(state => ({ format: state.format === 'NCHW' ? 'NHWC' : 'NCHW' }))
     },
 
-    // ── Selection ──
+  
     selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
     deselectNode: () => set({ selectedNodeId: null }),
 
-    // ── Load from JSON ──
+   
     loadFromJSON: (json) => {
       try {
         const data = typeof json === 'string' ? JSON.parse(json) : json
@@ -238,7 +237,7 @@ export const useGraphStore = create((set, get) => {
       }
     },
 
-    // ── Stats ──
+
     getTotalParams: () => {
       const { nodes, shapeResults } = get()
       let total = 0

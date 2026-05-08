@@ -71,7 +71,7 @@ import {
           proOptions={{ hideAttribution: true }}
           style={{ background: 'transparent' }}
         >
-          {/* Dot-grid background */}
+          
           <div
             className="dot-grid-bg"
             style={{ position: 'absolute', inset: 0, zIndex: -1 }}

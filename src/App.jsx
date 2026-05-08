@@ -1,17 +1,30 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+// App.jsx — Root layout
+import { ReactFlowProvider } from '@xyflow/react'
+import TopBar from './components/TopBar.jsx'
+import LayerPalette from './components/LayerPalette.jsx'
+import GraphCanvas from './components/GraphCanvas.jsx'
+import Inspector from './components/Inspector.jsx'
+import StatusBar from './components/StatusBar.jsx'
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
-    <>
-   <h1 className='' >Hi</h1>
-    </>
+    <ReactFlowProvider>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        background: '#080C14',
+        overflow: 'hidden',
+      }}>
+        <TopBar />
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+          <LayerPalette />
+          <GraphCanvas />
+          <Inspector />
+        </div>
+        <StatusBar />
+      </div>
+    </ReactFlowProvider>
   )
 }
-
-export default App

@@ -1,0 +1,139 @@
+{
+    "version": "1.0",
+    "format": "NCHW",
+    "inputShape": [1, 3, 224, 224],
+    "nodes": [
+      {
+        "id": "conv1",
+        "type": "Conv2D",
+        "position": { "x": 200, "y": 120 },
+        "config": {
+          "filters": 32,
+          "kernelSize": 3,
+          "stride": 1,
+          "padding": 1
+        }
+      },
+      {
+        "id": "relu1",
+        "type": "ReLU",
+        "position": { "x": 420, "y": 120 },
+        "config": {}
+      },
+      {
+        "id": "pool1",
+        "type": "MaxPool2D",
+        "position": { "x": 640, "y": 120 },
+        "config": {
+          "kernelSize": 2,
+          "stride": 2,
+          "padding": 0
+        }
+      },
+      {
+        "id": "conv2",
+        "type": "Conv2D",
+        "position": { "x": 880, "y": 120 },
+        "config": {
+          "filters": 64,
+          "kernelSize": 3,
+          "stride": 1,
+          "padding": 1
+        }
+      },
+      {
+        "id": "relu2",
+        "type": "ReLU",
+        "position": { "x": 1100, "y": 120 },
+        "config": {}
+      },
+      {
+        "id": "flatten1",
+        "type": "Flatten",
+        "position": { "x": 1320, "y": 120 },
+        "config": {}
+      },
+      {
+        "id": "dense1",
+        "type": "Dense",
+        "position": { "x": 1540, "y": 120 },
+        "config": {
+          "units": 128
+        }
+      },
+      {
+        "id": "dropout1",
+        "type": "Dropout",
+        "position": { "x": 1760, "y": 120 },
+        "config": {
+          "rate": 0.5
+        }
+      },
+      {
+        "id": "dense2",
+        "type": "Dense",
+        "position": { "x": 1980, "y": 120 },
+        "config": {
+          "units": 10
+        }
+      },
+      {
+        "id": "softmax1",
+        "type": "Softmax",
+        "position": { "x": 2200, "y": 120 },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-input-conv1",
+        "source": "input",
+        "target": "conv1"
+      },
+      {
+        "id": "e-conv1-relu1",
+        "source": "conv1",
+        "target": "relu1"
+      },
+      {
+        "id": "e-relu1-pool1",
+        "source": "relu1",
+        "target": "pool1"
+      },
+      {
+        "id": "e-pool1-conv2",
+        "source": "pool1",
+        "target": "conv2"
+      },
+      {
+        "id": "e-conv2-relu2",
+        "source": "conv2",
+        "target": "relu2"
+      },
+      {
+        "id": "e-relu2-flatten1",
+        "source": "relu2",
+        "target": "flatten1"
+      },
+      {
+        "id": "e-flatten1-dense1",
+        "source": "flatten1",
+        "target": "dense1"
+      },
+      {
+        "id": "e-dense1-dropout1",
+        "source": "dense1",
+        "target": "dropout1"
+      },
+      {
+        "id": "e-dropout1-dense2",
+        "source": "dropout1",
+        "target": "dense2"
+      },
+      {
+        "id": "e-dense2-softmax1",
+        "source": "dense2",
+        "target": "softmax1"
+      }
+    ]
+  }

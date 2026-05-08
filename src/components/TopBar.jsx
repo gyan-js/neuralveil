@@ -3,7 +3,7 @@ import { exportToPyTorch, exportToJSON } from '../engine/exportEngine.js'
 import { Download, Save, Upload, Code2 } from 'lucide-react'
 import { useRef, useState, useCallback } from 'react'
 
-
+import '../styles/globals.css'
 function LogoIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -77,6 +77,7 @@ function ExportModal({ onClose, code }) {
   const phaseLabels = ['Copy to clipboard', 'Analyzing graph...', 'Generating code...', '✓ Copied!']
 
   return (
+<>
     <div className="export-modal-backdrop" onClick={onClose}>
       <div className="export-modal" onClick={e => e.stopPropagation()}>
         {/* Header */}
@@ -113,6 +114,7 @@ function ExportModal({ onClose, code }) {
         </div>
       </div>
     </div>
+    </>
   )
 }
 
@@ -154,6 +156,37 @@ export default function TopBar() {
 
   return (
     <>
+    <style> {`
+    .btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: var(--cyan);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-ghost:hover {
+  background: rgba(0,229,255,0.08);
+  border-color: rgba(0,229,255,0.7);
+  box-shadow: 0 0 12px rgba(0,229,255,0.15);
+}
+.btn-ghost.danger {
+  border-color: rgba(255,107,53,0.3);
+  color: var(--error);
+}
+.btn-ghost.danger:hover {
+  background: rgba(255,107,53,0.08);
+  border-color: rgba(255,107,53,0.7);
+  box-shadow: 0 0 12px rgba(255,107,53,0.15);
+}
+`}
+    </style>
       <div style={{
         height: 52,
         background: '#080C14',
@@ -176,7 +209,7 @@ export default function TopBar() {
               letterSpacing: '0.06em',
               textShadow: '0 0 20px rgba(0,229,255,0.4)',
             }}>
-              TENSOR
+              (still looking for)
             </span>
             <span style={{
               fontFamily: 'Syne', fontWeight: 400, fontSize: 15,
@@ -184,7 +217,7 @@ export default function TopBar() {
               letterSpacing: '0.06em',
               marginLeft: 4,
             }}>
-              DEBUGGER
+              an unique name
             </span>
           </div>
         </div>
