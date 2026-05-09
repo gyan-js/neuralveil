@@ -1,4 +1,4 @@
-import { Grid2X2, Minimize2, Layers, Minus, SlidersHorizontal, Dices } from 'lucide-react'
+import { Grid2X2, Minimize2, Layers, Minus, SlidersHorizontal, Dices, GitMerge } from 'lucide-react'
 import { LAYER_COLORS, LAYER_TYPE_BADGE, LAYER_TOOLTIPS } from '../constants/layerDefaults.js'
 import { useState } from 'react'
 
@@ -9,6 +9,7 @@ const LAYERS_CONFIG = [
   { type: 'Flatten', icon: Minus, desc: 'Flatten multi-dim tensor to 1D' },
   { type: 'BatchNorm', icon: SlidersHorizontal, desc: 'Normalize activations per batch' },
   { type: 'Dropout', icon: Dices, desc: 'Randomly zero activations during training' },
+  { type: 'Merge', icon: GitMerge, desc: 'Merge two branches via ADD or CONCAT' },
 ]
 
 function LayerChip({ type, icon: Icon, desc }) {
@@ -16,6 +17,8 @@ function LayerChip({ type, icon: Icon, desc }) {
   const color = LAYER_COLORS[type] || '#00E5FF'
   const badge = LAYER_TYPE_BADGE[type] || '??'
   const tooltip = LAYER_TOOLTIPS[type] || ''
+
+  const isMerge = type === 'Merge'
 
   const onDragStart = (e) => {
     e.dataTransfer.setData('application/reactflow', type)
@@ -42,6 +45,11 @@ function LayerChip({ type, icon: Icon, desc }) {
           transition: 'all 0.15s ease',
           userSelect: 'none',
           boxShadow: hovering ? `0 0 12px rgba(0,229,255,0.08)` : 'none',
+          // Subtle distinction for Merge
+          ...(isMerge && {
+            borderTop: '1px solid rgba(245,158,11,0.12)',
+            marginTop: 4,
+          }),
         }}
       >
         <div style={{
@@ -82,7 +90,7 @@ function LayerChip({ type, icon: Icon, desc }) {
           borderRadius: 6,
           padding: '6px 10px',
           zIndex: 9999,
-          width: 160,
+          width: 170,
           pointerEvents: 'none',
           boxShadow: '0 0 20px rgba(0,0,0,0.5)',
         }}>
@@ -95,6 +103,18 @@ function LayerChip({ type, icon: Icon, desc }) {
           <div style={{ fontFamily: 'JetBrains Mono', fontSize: 8.5, color: 'rgba(0,229,255,0.5)' }}>
             {tooltip}
           </div>
+          {isMerge && (
+            <div style={{
+              marginTop: 6,
+              paddingTop: 5,
+              borderTop: '1px solid rgba(245,158,11,0.15)',
+              fontFamily: 'JetBrains Mono', fontSize: 8,
+              color: 'rgba(245,158,11,0.7)',
+              lineHeight: 1.5,
+            }}>
+              Accepts 2 inputs.<br />Toggle ADD ↔ CONCAT on node.
+            </div>
+          )}
         </div>
       )}
     </div>
