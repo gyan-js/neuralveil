@@ -1,7 +1,7 @@
 import { useGraphStore } from '../store/useGraphStore.js'
 import { LAYER_PARAM_RANGES, LAYER_COLORS } from '../constants/layerDefaults.js'
 import { formatShape, countParams } from '../engine/shapeEngine.js'
-import { Trash2, X, AlertCircle } from 'lucide-react'
+import { Trash2, X, AlertCircle, GitMerge } from 'lucide-react'
 
 function ParamRow({ label, value, min, max, step, onChange }) {
   return (
@@ -32,6 +32,107 @@ function ParamRow({ label, value, min, max, step, onChange }) {
           onChange={e => onChange(parseFloat(e.target.value))}
         />
       )}
+    </div>
+  )
+}
+
+function MergeInspector({ node, result, format, updateNodeConfig }) {
+  const config = node.data?.config || {}
+  const mode = config.mode || 'add'
+  const inputShapes = result?.inputShapes || []
+  const outputShape = result?.outputShape
+
+  const setMode = (m) => updateNodeConfig(node.id, { mode: m })
+
+  return (
+    <div>
+      {/* Mode selector */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 10 }}>
+          MERGE MODE
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {['add', 'concat'].map(m => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              style={{
+                flex: 1,
+                fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 600,
+                letterSpacing: '0.05em',
+                padding: '7px 0',
+                borderRadius: 6,
+                cursor: 'pointer',
+                border: `1px solid ${mode === m
+                  ? (m === 'add' ? 'rgba(245,158,11,0.6)' : 'rgba(139,92,246,0.6)')
+                  : 'rgba(255,255,255,0.1)'}`,
+                background: mode === m
+                  ? (m === 'add' ? 'rgba(245,158,11,0.12)' : 'rgba(139,92,246,0.12)')
+                  : 'transparent',
+                color: mode === m
+                  ? (m === 'add' ? '#F59E0B' : '#8B5CF6')
+                  : 'rgba(255,255,255,0.3)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {m.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        <div style={{
+          marginTop: 8,
+          fontFamily: 'JetBrains Mono', fontSize: 8.5,
+          color: 'rgba(255,255,255,0.3)', lineHeight: 1.5,
+        }}>
+          {mode === 'add'
+            ? 'Element-wise addition (ResNet style). All input shapes must be identical.'
+            : 'Channel concatenation (DenseNet / UNet style). Batch + H × W must match; channels are summed.'}
+        </div>
+      </div>
+
+      {/* Input shapes */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 10 }}>
+          INPUT SHAPES
+        </div>
+        {inputShapes.length === 0 ? (
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>
+            No inputs connected yet.
+          </div>
+        ) : (
+          inputShapes.map((s, i) => (
+            <div key={i} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '5px 8px', marginBottom: 4,
+              background: i === 0 ? 'rgba(245,158,11,0.05)' : 'rgba(139,92,246,0.05)',
+              border: `1px solid ${i === 0 ? 'rgba(245,158,11,0.12)' : 'rgba(139,92,246,0.12)'}`,
+              borderRadius: 5,
+            }}>
+              <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>
+                IN {String.fromCharCode(65 + i)}
+              </span>
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9.5, color: i === 0 ? '#F59E0B' : '#8B5CF6' }}>
+                {s ? formatShape(s, format) : '—'}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Output shape */}
+      <div style={{
+        background: '#0D1526',
+        border: '1px solid rgba(0,229,255,0.08)',
+        borderRadius: 8,
+        padding: '10px 12px',
+      }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
+          OUTPUT SHAPE
+        </div>
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: outputShape ? '#39FF14' : '#FF6B35', fontWeight: 600 }}>
+          {outputShape ? formatShape(outputShape, format) : '???'}
+        </span>
+      </div>
     </div>
   )
 }
@@ -70,6 +171,18 @@ export default function Inspector() {
   const update = (key, val) => updateNodeConfig(selectedNodeId, { [key]: val })
 
   const renderParams = () => {
+    // Merge nodes get their own special inspector UI
+    if (layerType === 'Merge') {
+      return (
+        <MergeInspector
+          node={node}
+          result={result}
+          format={format}
+          updateNodeConfig={updateNodeConfig}
+        />
+      )
+    }
+
     if (!config || Object.keys(ranges).length === 0) {
       return (
         <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic', padding: '8px 0' }}>
@@ -118,6 +231,17 @@ export default function Inspector() {
           <span style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 13, color: '#fff', letterSpacing: '0.03em' }}>
             {layerType}
           </span>
+          {layerType === 'Merge' && (
+            <span style={{
+              fontFamily: 'JetBrains Mono', fontSize: 8,
+              color: 'rgba(245,158,11,0.6)',
+              background: 'rgba(245,158,11,0.08)',
+              border: '1px solid rgba(245,158,11,0.2)',
+              padding: '1px 5px', borderRadius: 3,
+            }}>
+              {(config?.mode || 'add').toUpperCase()}
+            </span>
+          )}
         </div>
         <button
           onClick={deselectNode}
@@ -130,40 +254,42 @@ export default function Inspector() {
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
 
-        {/* Shape preview */}
-        <div style={{
-          background: '#0D1526',
-          border: '1px solid rgba(0,229,255,0.08)',
-          borderRadius: 8,
-          padding: '10px 12px',
-          marginBottom: 18,
-        }}>
-          <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
-            SHAPE PREVIEW
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>IN</span>
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'rgba(0,229,255,0.7)' }}>
-                {inputShape ? formatShape(inputShape, format) : '—'}
-              </span>
+        {/* Shape preview — skip for Merge (it renders its own) */}
+        {layerType !== 'Merge' && (
+          <div style={{
+            background: '#0D1526',
+            border: '1px solid rgba(0,229,255,0.08)',
+            borderRadius: 8,
+            padding: '10px 12px',
+            marginBottom: 18,
+          }}>
+            <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
+              SHAPE PREVIEW
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>OUT</span>
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: hasError ? '#FF6B35' : '#39FF14', fontWeight: 600 }}>
-                {outputShape ? formatShape(outputShape, format) : '???'}
-              </span>
-            </div>
-            {params > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2, paddingTop: 6, borderTop: '1px solid rgba(0,229,255,0.06)' }}>
-                <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>PARAMS</span>
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#FFD700' }}>
-                  {params.toLocaleString()}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>IN</span>
+                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'rgba(0,229,255,0.7)' }}>
+                  {inputShape ? formatShape(inputShape, format) : '—'}
                 </span>
               </div>
-            )}
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>OUT</span>
+                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: hasError ? '#FF6B35' : '#39FF14', fontWeight: 600 }}>
+                  {outputShape ? formatShape(outputShape, format) : '???'}
+                </span>
+              </div>
+              {params > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2, paddingTop: 6, borderTop: '1px solid rgba(0,229,255,0.06)' }}>
+                  <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>PARAMS</span>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#FFD700' }}>
+                    {params.toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Error card */}
         {hasError && result?.message && (
@@ -186,12 +312,14 @@ export default function Inspector() {
           </div>
         )}
 
-        {/* Parameters */}
+        {/* Parameters / merge controls */}
         {layerType !== 'Input' && (
           <div>
-            <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 14 }}>
-              PARAMETERS
-            </div>
+            {layerType !== 'Merge' && (
+              <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 14 }}>
+                PARAMETERS
+              </div>
+            )}
             {renderParams()}
           </div>
         )}
