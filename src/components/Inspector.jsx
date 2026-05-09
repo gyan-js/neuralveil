@@ -1,7 +1,9 @@
 import { useGraphStore } from '../store/useGraphStore.js'
 import { LAYER_PARAM_RANGES, LAYER_COLORS } from '../constants/layerDefaults.js'
 import { formatShape, countParams } from '../engine/shapeEngine.js'
-import { Trash2, X, AlertCircle, GitMerge } from 'lucide-react'
+import { Trash2, X, AlertCircle } from 'lucide-react'
+
+// ─── GENERIC PARAM ROW ───────────────────────────────────────────────────────
 
 function ParamRow({ label, value, min, max, step, onChange }) {
   return (
@@ -36,9 +38,11 @@ function ParamRow({ label, value, min, max, step, onChange }) {
   )
 }
 
+// ─── MERGE INSPECTOR ─────────────────────────────────────────────────────────
+
 function MergeInspector({ node, result, format, updateNodeConfig }) {
-  const config = node.data?.config || {}
-  const mode = config.mode || 'add'
+  const config      = node.data?.config || {}
+  const mode        = config.mode || 'add'
   const inputShapes = result?.inputShapes || []
   const outputShape = result?.outputShape
 
@@ -46,7 +50,6 @@ function MergeInspector({ node, result, format, updateNodeConfig }) {
 
   return (
     <div>
-      {/* Mode selector */}
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 10 }}>
           MERGE MODE
@@ -58,11 +61,8 @@ function MergeInspector({ node, result, format, updateNodeConfig }) {
               onClick={() => setMode(m)}
               style={{
                 flex: 1,
-                fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 600,
-                letterSpacing: '0.05em',
-                padding: '7px 0',
-                borderRadius: 6,
-                cursor: 'pointer',
+                fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                padding: '7px 0', borderRadius: 6, cursor: 'pointer',
                 border: `1px solid ${mode === m
                   ? (m === 'add' ? 'rgba(245,158,11,0.6)' : 'rgba(139,92,246,0.6)')
                   : 'rgba(255,255,255,0.1)'}`,
@@ -79,18 +79,13 @@ function MergeInspector({ node, result, format, updateNodeConfig }) {
             </button>
           ))}
         </div>
-        <div style={{
-          marginTop: 8,
-          fontFamily: 'JetBrains Mono', fontSize: 8.5,
-          color: 'rgba(255,255,255,0.3)', lineHeight: 1.5,
-        }}>
+        <div style={{ marginTop: 8, fontFamily: 'JetBrains Mono', fontSize: 8.5, color: 'rgba(255,255,255,0.3)', lineHeight: 1.5 }}>
           {mode === 'add'
             ? 'Element-wise addition (ResNet style). All input shapes must be identical.'
             : 'Channel concatenation (DenseNet / UNet style). Batch + H × W must match; channels are summed.'}
         </div>
       </div>
 
-      {/* Input shapes */}
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 10 }}>
           INPUT SHAPES
@@ -119,13 +114,7 @@ function MergeInspector({ node, result, format, updateNodeConfig }) {
         )}
       </div>
 
-      {/* Output shape */}
-      <div style={{
-        background: '#0D1526',
-        border: '1px solid rgba(0,229,255,0.08)',
-        borderRadius: 8,
-        padding: '10px 12px',
-      }}>
+      <div style={{ background: '#0D1526', border: '1px solid rgba(0,229,255,0.08)', borderRadius: 8, padding: '10px 12px' }}>
         <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
           OUTPUT SHAPE
         </div>
@@ -137,19 +126,268 @@ function MergeInspector({ node, result, format, updateNodeConfig }) {
   )
 }
 
+// ─── RESHAPE INSPECTOR ───────────────────────────────────────────────────────
+
+function ReshapeInspector({ node, result, format, updateNodeConfig }) {
+  const config      = node.data?.config || {}
+  const inputShape  = result?.inputShape
+  const outputShape = result?.outputShape
+
+  const update = (key, val) => {
+    const v = parseInt(val)
+    if (!isNaN(v) && v > 0) updateNodeConfig(node.id, { [key]: v })
+  }
+
+  // Compute input element count for display
+  const inElements = inputShape
+    ? inputShape.slice(1).every(d => d !== null)
+      ? inputShape.slice(1).reduce((a, b) => a * b, 1)
+      : null
+    : null
+
+  const outElements = [config.targetC, config.targetH, config.targetW]
+    .filter(d => d !== undefined && d !== null)
+    .reduce((a, b) => a * b, 1)
+
+  const mismatch = inElements !== null && outElements !== inElements
+
+  const fieldStyle = {
+    display: 'flex', flexDirection: 'column', gap: 4,
+  }
+  const labelStyle = {
+    fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)',
+    letterSpacing: '0.12em', textTransform: 'uppercase',
+  }
+
+  return (
+    <div>
+      {/* Element count hint */}
+      <div style={{
+        background: mismatch ? 'rgba(255,107,53,0.07)' : 'rgba(129,140,248,0.05)',
+        border: `1px solid ${mismatch ? 'rgba(255,107,53,0.25)' : 'rgba(129,140,248,0.15)'}`,
+        borderRadius: 7, padding: '8px 10px', marginBottom: 16,
+        fontFamily: 'JetBrains Mono', fontSize: 9, lineHeight: 1.6,
+        color: mismatch ? '#FF6B35' : 'rgba(129,140,248,0.8)',
+      }}>
+        <div>Input elements: <strong>{inElements !== null ? inElements : '?'}</strong></div>
+        <div>Target elements: <strong>{outElements}</strong></div>
+        {mismatch && <div style={{ marginTop: 4, color: '#FF6B35' }}>⚠ Counts must match.</div>}
+      </div>
+
+      {/* TARGET C */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={labelStyle}>Target C</span>
+          <input
+            type="number" min={1} max={65536} step={1}
+            value={config.targetC ?? 64}
+            onChange={e => update('targetC', e.target.value)}
+            style={{ width: 72 }}
+          />
+        </div>
+        <input type="range" min={1} max={2048} step={1}
+          value={config.targetC ?? 64}
+          onChange={e => update('targetC', e.target.value)}
+        />
+      </div>
+
+      {/* TARGET H */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={labelStyle}>Target H</span>
+          <input
+            type="number" min={1} max={65536} step={1}
+            value={config.targetH ?? 8}
+            onChange={e => update('targetH', e.target.value)}
+            style={{ width: 72 }}
+          />
+        </div>
+        <input type="range" min={1} max={512} step={1}
+          value={config.targetH ?? 8}
+          onChange={e => update('targetH', e.target.value)}
+        />
+      </div>
+
+      {/* TARGET W */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={labelStyle}>Target W</span>
+          <input
+            type="number" min={1} max={65536} step={1}
+            value={config.targetW ?? 8}
+            onChange={e => update('targetW', e.target.value)}
+            style={{ width: 72 }}
+          />
+        </div>
+        <input type="range" min={1} max={512} step={1}
+          value={config.targetW ?? 8}
+          onChange={e => update('targetW', e.target.value)}
+        />
+      </div>
+
+      {/* Output shape */}
+      <div style={{ background: '#0D1526', border: '1px solid rgba(0,229,255,0.08)', borderRadius: 8, padding: '10px 12px' }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
+          OUTPUT SHAPE
+        </div>
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: outputShape ? '#39FF14' : '#FF6B35', fontWeight: 600 }}>
+          {outputShape ? formatShape(outputShape, format) : '???'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ─── PERMUTE INSPECTOR ───────────────────────────────────────────────────────
+
+function PermuteInspector({ node, result, format, updateNodeConfig }) {
+  const config      = node.data?.config || {}
+  const inputShape  = result?.inputShape
+  const outputShape = result?.outputShape
+  const rank        = inputShape ? inputShape.length : 4
+
+  // permutation is stored as an array e.g. [0,1,2,3]
+  const perm = config.permutation ?? Array.from({ length: rank }, (_, i) => i)
+
+  const updatePerm = (idx, val) => {
+    const v = parseInt(val)
+    if (isNaN(v)) return
+    const next = [...perm]
+    next[idx] = v
+    updateNodeConfig(node.id, { permutation: next })
+  }
+
+  // Validation: must be a valid permutation
+  const sorted = [...perm].sort((a, b) => a - b)
+  const isValid = sorted.every((d, i) => d === i)
+
+  const presets4D = [
+    { label: 'identity',  perm: [0, 1, 2, 3] },
+    { label: '→ NHWC',   perm: [0, 2, 3, 1] },
+    { label: '→ NCHW',   perm: [0, 3, 1, 2] },
+    { label: 'flip H×W', perm: [0, 1, 3, 2] },
+  ]
+
+  const accentColor = 'rgba(52,211,153,0.6)'  // emerald clr
+
+  return (
+    <div>
+  
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 10 }}>
+          DIM ORDER
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {perm.map((val, idx) => (
+            <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontFamily: 'Syne', fontSize: 8, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em' }}>
+                dim{idx}
+              </span>
+              <input
+                type="number"
+                min={0} max={rank - 1} step={1}
+                value={val}
+                onChange={e => updatePerm(idx, e.target.value)}
+                style={{ width: '100%', textAlign: 'center' }}
+              />
+            </div>
+          ))}
+        </div>
+        {!isValid && (
+          <div style={{
+            marginTop: 8, fontFamily: 'JetBrains Mono', fontSize: 8.5,
+            color: '#FF6B35', lineHeight: 1.5,
+          }}>
+            ⚠ [{perm.join(',')}] is not a valid permutation of [0..{rank - 1}].
+          </div>
+        )}
+      </div>
+
+      {/* Quick presets (only for 4-D tensors) */}
+      {rank === 4 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
+            PRESETS
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {presets4D.map(({ label, perm: p }) => {
+              const active = JSON.stringify(perm) === JSON.stringify(p)
+              return (
+                <button
+                  key={label}
+                  onClick={() => updateNodeConfig(node.id, { permutation: p })}
+                  style={{
+                    fontFamily: 'JetBrains Mono', fontSize: 8.5,
+                    padding: '5px 4px', borderRadius: 5, cursor: 'pointer',
+                    border: `1px solid ${active ? accentColor : 'rgba(255,255,255,0.1)'}`,
+                    background: active ? 'rgba(52,211,153,0.08)' : 'transparent',
+                    color: active ? '#34D399' : 'rgba(255,255,255,0.35)',
+                    transition: 'all 0.15s ease',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+
+      {inputShape && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
+            DIM MAPPING
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {perm.map((fromIdx, toIdx) => (
+              <div key={toIdx} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '3px 8px',
+                background: 'rgba(52,211,153,0.04)',
+                border: '1px solid rgba(52,211,153,0.1)',
+                borderRadius: 4,
+              }}>
+                <span style={{ fontFamily: 'Syne', fontSize: 8.5, color: 'rgba(255,255,255,0.3)' }}>
+                  out[{toIdx}]
+                </span>
+                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#34D399' }}>
+                  ← in[{fromIdx}] = {inputShape[fromIdx] ?? '?'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+   
+      <div style={{ background: '#0D1526', border: '1px solid rgba(0,229,255,0.08)', borderRadius: 8, padding: '10px 12px' }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
+          OUTPUT SHAPE
+        </div>
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: outputShape ? '#39FF14' : '#FF6B35', fontWeight: 600 }}>
+          {outputShape ? formatShape(outputShape, format) : '???'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+
+
 export default function Inspector() {
-  const selectedNodeId = useGraphStore(s => s.selectedNodeId)
-  const nodes = useGraphStore(s => s.nodes)
-  const shapeResults = useGraphStore(s => s.shapeResults)
-  const format = useGraphStore(s => s.format)
+  const selectedNodeId  = useGraphStore(s => s.selectedNodeId)
+  const nodes           = useGraphStore(s => s.nodes)
+  const shapeResults    = useGraphStore(s => s.shapeResults)
+  const format          = useGraphStore(s => s.format)
   const updateNodeConfig = useGraphStore(s => s.updateNodeConfig)
-  const deleteNode = useGraphStore(s => s.deleteNode)
-  const deselectNode = useGraphStore(s => s.deselectNode)
+  const deleteNode      = useGraphStore(s => s.deleteNode)
+  const deselectNode    = useGraphStore(s => s.deselectNode)
 
-  const node = nodes.find(n => n.id === selectedNodeId)
-  const isOpen = !!node
-
-  const result = selectedNodeId ? shapeResults[selectedNodeId] : null
+  const node    = nodes.find(n => n.id === selectedNodeId)
+  const isOpen  = !!node
+  const result  = selectedNodeId ? shapeResults[selectedNodeId] : null
   const hasError = !!result?.error
 
   if (!node) {
@@ -163,24 +401,22 @@ export default function Inspector() {
 
   const { layerType, config } = node.data || {}
   const accentColor = LAYER_COLORS[layerType] || '#00E5FF'
-  const ranges = LAYER_PARAM_RANGES[layerType] || {}
-  const inputShape = result?.inputShape
+  const ranges      = LAYER_PARAM_RANGES[layerType] || {}
+  const inputShape  = result?.inputShape
   const outputShape = result?.outputShape
-  const params = inputShape ? countParams(layerType, inputShape, config) : 0
+  const params      = inputShape ? countParams(layerType, inputShape, config) : 0
 
   const update = (key, val) => updateNodeConfig(selectedNodeId, { [key]: val })
 
   const renderParams = () => {
-    // Merge nodes get their own special inspector UI
     if (layerType === 'Merge') {
-      return (
-        <MergeInspector
-          node={node}
-          result={result}
-          format={format}
-          updateNodeConfig={updateNodeConfig}
-        />
-      )
+      return <MergeInspector node={node} result={result} format={format} updateNodeConfig={updateNodeConfig} />
+    }
+    if (layerType === 'Reshape') {
+      return <ReshapeInspector node={node} result={result} format={format} updateNodeConfig={updateNodeConfig} />
+    }
+    if (layerType === 'Permute') {
+      return <PermuteInspector node={node} result={result} format={format} updateNodeConfig={updateNodeConfig} />
     }
 
     if (!config || Object.keys(ranges).length === 0) {
@@ -204,6 +440,9 @@ export default function Inspector() {
     ))
   }
 
+
+  const hasCustomUI = ['Merge', 'Reshape', 'Permute'].includes(layerType)
+
   return (
     <div
       className={`inspector-panel ${isOpen ? 'inspector-open' : 'inspector-closed'}`}
@@ -212,56 +451,43 @@ export default function Inspector() {
         background: '#080C14',
         borderLeft: '1px solid rgba(0,229,255,0.07)',
         flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}
     >
-      {/* Header */}
+     
       <div style={{
         padding: '14px 16px 12px',
         borderBottom: '1px solid rgba(0,229,255,0.06)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 8, height: 8, borderRadius: '50%',
-            background: accentColor, boxShadow: `0 0 8px ${accentColor}`,
-          }} />
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: accentColor, boxShadow: `0 0 8px ${accentColor}` }} />
           <span style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 13, color: '#fff', letterSpacing: '0.03em' }}>
             {layerType}
           </span>
           {layerType === 'Merge' && (
             <span style={{
               fontFamily: 'JetBrains Mono', fontSize: 8,
-              color: 'rgba(245,158,11,0.6)',
-              background: 'rgba(245,158,11,0.08)',
-              border: '1px solid rgba(245,158,11,0.2)',
-              padding: '1px 5px', borderRadius: 3,
+              color: 'rgba(245,158,11,0.6)', background: 'rgba(245,158,11,0.08)',
+              border: '1px solid rgba(245,158,11,0.2)', padding: '1px 5px', borderRadius: 3,
             }}>
               {(config?.mode || 'add').toUpperCase()}
             </span>
           )}
         </div>
-        <button
-          onClick={deselectNode}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-        >
+        <button onClick={deselectNode} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
           <X size={14} color="rgba(255,255,255,0.3)" />
         </button>
       </div>
 
-      {/* Scrollable content */}
+    
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
 
-        {/* Shape preview — skip for Merge (it renders its own) */}
-        {layerType !== 'Merge' && (
+
+        {!hasCustomUI && (
           <div style={{
-            background: '#0D1526',
-            border: '1px solid rgba(0,229,255,0.08)',
-            borderRadius: 8,
-            padding: '10px 12px',
-            marginBottom: 18,
+            background: '#0D1526', border: '1px solid rgba(0,229,255,0.08)',
+            borderRadius: 8, padding: '10px 12px', marginBottom: 18,
           }}>
             <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
               SHAPE PREVIEW
@@ -291,14 +517,11 @@ export default function Inspector() {
           </div>
         )}
 
-        {/* Error card */}
+        
         {hasError && result?.message && (
           <div style={{
-            background: 'rgba(255,107,53,0.07)',
-            border: '1px solid rgba(255,107,53,0.25)',
-            borderRadius: 8,
-            padding: '10px 12px',
-            marginBottom: 18,
+            background: 'rgba(255,107,53,0.07)', border: '1px solid rgba(255,107,53,0.25)',
+            borderRadius: 8, padding: '10px 12px', marginBottom: 18,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
               <AlertCircle size={11} color="#FF6B35" />
@@ -312,10 +535,10 @@ export default function Inspector() {
           </div>
         )}
 
-        {/* Parameters / merge controls */}
+     
         {layerType !== 'Input' && (
           <div>
-            {layerType !== 'Merge' && (
+            {!hasCustomUI && (
               <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 14 }}>
                 PARAMETERS
               </div>
@@ -325,12 +548,9 @@ export default function Inspector() {
         )}
       </div>
 
-      {/* Footer */}
+     
       {node.deletable !== false && layerType !== 'Input' && (
-        <div style={{
-          padding: '12px 16px',
-          borderTop: '1px solid rgba(0,229,255,0.06)',
-        }}>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(0,229,255,0.06)' }}>
           <button
             className="btn-ghost danger"
             style={{ width: '100%', justifyContent: 'center' }}
