@@ -1,6 +1,4 @@
-
-
-export const LAYER_TYPES = ['Conv2D', 'MaxPool2D', 'Dense', 'Flatten', 'BatchNorm', 'Dropout']
+export const LAYER_TYPES = ['Conv2D', 'MaxPool2D', 'Dense', 'Flatten', 'BatchNorm', 'Dropout', 'Merge']
 
 export const LAYER_DEFAULTS = {
   Conv2D: {
@@ -25,6 +23,9 @@ export const LAYER_DEFAULTS = {
   },
   Dropout: {
     p: 0.5,
+  },
+  Merge: {
+    mode: 'add',
   },
 }
 
@@ -51,6 +52,8 @@ export const LAYER_PARAM_RANGES = {
   Dropout: {
     p: { min: 0.0, max: 0.99, step: 0.01 },
   },
+
+  Merge: {},  //herer the Merge has no numeric ranges — mode is toggled via button in MergeNode itself
 }
 
 export const LAYER_COLORS = {
@@ -61,6 +64,7 @@ export const LAYER_COLORS = {
   BatchNorm: '#EC4899',
   Dropout: '#64748B',
   Input: '#39FF14',
+  Merge: '#F59E0B',
 }
 
 export const LAYER_TYPE_BADGE = {
@@ -71,6 +75,7 @@ export const LAYER_TYPE_BADGE = {
   BatchNorm: 'NORM',
   Dropout: 'REG',
   Input: 'IN',
+  Merge: 'MERGE',
 }
 
 export const LAYER_TOOLTIPS = {
@@ -80,4 +85,5 @@ export const LAYER_TOOLTIPS = {
   Flatten: 'No parameters',
   BatchNorm: 'eps=1e-5, momentum=0.1',
   Dropout: 'p=0.5',
+  Merge: 'ADD: identical shapes | CONCAT: sum channels',
 }
