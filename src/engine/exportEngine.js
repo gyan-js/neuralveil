@@ -22,9 +22,15 @@ export function exportToPyTorch(nodes, edges, inputShape) {
       flatten: `flatten`,
       batchnorm: `bn${suffix}`,
       dropout: `dropout${suffix === 1 ? '' : suffix}`,
+      merge: `merge${suffix}`,
     }
     return names[key] || `layer${suffix}`
   }
+
+  // Build a nodeId → varName map so forward() can reference tensors by name
+  const varNameMap = {}
+  const inputNodeId = inputNode?.id
+  if (inputNodeId) varNameMap[inputNodeId] = 'x'
 
   const layerNameMap = {}
   const initLines = []
@@ -36,10 +42,14 @@ export function exportToPyTorch(nodes, edges, inputShape) {
     const name = getLayerName(type)
     layerNameMap[node.id] = name
 
-    const inEdge = edges.find(e => e.target === node.id)
-    const sourceId = inEdge?.source
+    const inEdges = edges.filter(e => e.target === node.id)
+    const sourceId = inEdges[0]?.source
     const inResult = sourceId ? results[sourceId] : null
     const inShape = inResult?.outputShape || null
+
+    // Determine output variable name for this node
+    const outVar = name.replace(/\d+$/, '') + (layerCounters[type.toLowerCase()] || 1)
+    varNameMap[node.id] = outVar
 
     let initLine = ''
     let forwardLine = ''
@@ -49,13 +59,13 @@ export function exportToPyTorch(nodes, edges, inputShape) {
         const inC = inShape?.[1] ?? '???'
         const { filters = 64, kernelSize = 3, stride = 1, padding = 0 } = cfg
         initLine = `        self.${name} = nn.Conv2d(in_channels=${inC}, out_channels=${filters}, kernel_size=${kernelSize}, stride=${stride}, padding=${padding})`
-        forwardLine = `        x = torch.relu(self.${name}(x))`
+        forwardLine = `        ${outVar} = torch.relu(self.${name}(${varNameMap[sourceId] || 'x'}))`
         break
       }
       case 'MaxPool2D': {
         const { kernelSize = 2, stride = 2 } = cfg
         initLine = `        self.${name} = nn.MaxPool2d(kernel_size=${kernelSize}, stride=${stride})`
-        forwardLine = `        x = self.${name}(x)`
+        forwardLine = `        ${outVar} = self.${name}(${varNameMap[sourceId] || 'x'})`
         break
       }
       case 'Dense': {
@@ -64,25 +74,43 @@ export function exportToPyTorch(nodes, edges, inputShape) {
         const isLast = nonInputNodes.indexOf(node) === nonInputNodes.length - 1
         initLine = `        self.${name} = nn.Linear(in_features=${inF}, out_features=${units})`
         forwardLine = isLast
-          ? `        x = self.${name}(x)`
-          : `        x = torch.relu(self.${name}(x))`
+          ? `        ${outVar} = self.${name}(${varNameMap[sourceId] || 'x'})`
+          : `        ${outVar} = torch.relu(self.${name}(${varNameMap[sourceId] || 'x'}))`
         break
       }
       case 'Flatten': {
         initLine = `        self.${name} = nn.Flatten()`
-        forwardLine = `        x = self.${name}(x)`
+        forwardLine = `        ${outVar} = self.${name}(${varNameMap[sourceId] || 'x'})`
         break
       }
       case 'BatchNorm': {
         const channels = inShape?.[1] ?? '???'
         initLine = `        self.${name} = nn.BatchNorm2d(num_features=${channels})`
-        forwardLine = `        x = self.${name}(x)`
+        forwardLine = `        ${outVar} = self.${name}(${varNameMap[sourceId] || 'x'})`
         break
       }
       case 'Dropout': {
         const { p = 0.5 } = cfg
         initLine = `        self.${name} = nn.Dropout(p=${p})`
-        forwardLine = `        x = self.${name}(x)`
+        forwardLine = `        ${outVar} = self.${name}(${varNameMap[sourceId] || 'x'})`
+        break
+      }
+      case 'Merge': {
+        const mode = cfg.mode || 'add'
+      
+        const parentVars = inEdges
+          .map(e => varNameMap[e.source])
+          .filter(Boolean)
+        const tensorsStr = parentVars.join(', ')
+
+        // ADD → no nn.Module needed, just tensor addition
+        // CONCAT → torch.cat along dim=1
+        if (mode === 'add') {
+          forwardLine = `        ${outVar} = ${parentVars.join(' + ')}  # residual / skip ADD`
+        } else {
+          forwardLine = `        ${outVar} = torch.cat([${tensorsStr}], dim=1)  # skip CONCAT`
+        }
+        // Merge has no init line (no learnable params)
         break
       }
     }
@@ -101,11 +129,11 @@ import torch.nn as nn
 class GeneratedModel(nn.Module):
     def __init__(self):
         super().__init__()
-${initLines.join('\n')}
+${initLines.length > 0 ? initLines.join('\n') : '        pass'}
 
     def forward(self, x):
 ${forwardLines.join('\n')}
-        return x
+        return ${varNameMap[nonInputNodes[nonInputNodes.length - 1]?.id] || 'x'}
 
 
 if __name__ == '__main__':
