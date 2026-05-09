@@ -1,4 +1,3 @@
-
 import { create } from 'zustand'
 import { addEdge, applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import { propagateGraph, countParams } from '../engine/shapeEngine.js'
@@ -106,6 +105,15 @@ function createDefaultGraph() {
 
 const DEFAULT_INPUT_SHAPE = [1, 3, 224, 224]
 
+/**
+ * Map layerType → React Flow node type string
+ */
+function getNodeType(layerType) {
+  if (layerType === 'Input') return 'inputNode'
+  if (layerType === 'Merge') return 'mergeNode'
+  return 'layerNode'
+}
+
 export const useGraphStore = create((set, get) => {
   const { nodes: defaultNodes, edges: defaultEdges } = createDefaultGraph()
   const initialResults = propagateGraph(defaultNodes, defaultEdges, DEFAULT_INPUT_SHAPE)
@@ -143,7 +151,7 @@ export const useGraphStore = create((set, get) => {
       const id = `node-${nodeCounter}`
       const newNode = {
         id,
-        type: 'layerNode',
+        type: getNodeType(layerType),
         position,
         data: {
           layerType,
@@ -216,7 +224,7 @@ export const useGraphStore = create((set, get) => {
         const data = typeof json === 'string' ? JSON.parse(json) : json
         const nodes = data.nodes.map((n, i) => ({
           id: n.id,
-          type: n.type === 'Input' ? 'inputNode' : 'layerNode',
+          type: getNodeType(n.type),
           position: n.position,
           deletable: n.type !== 'Input',
           data: {
