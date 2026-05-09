@@ -217,7 +217,7 @@ export default function TopBar() {
               letterSpacing: '0.06em',
               marginLeft: 4,
             }}>
-              an unique name
+              v.1.0.1
             </span>
           </div>
         </div>
