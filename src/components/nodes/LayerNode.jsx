@@ -14,7 +14,10 @@ function formatParamCount(n) {
 function ParamChip({ label, value }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <span style={{ fontFamily: 'Syne', fontSize: 8, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+      <span style={{
+        fontFamily: 'Syne', fontSize: 8, color: 'rgba(255,255,255,0.3)',
+        letterSpacing: '0.1em', textTransform: 'uppercase',
+      }}>
         {label}
       </span>
       <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>
@@ -26,14 +29,14 @@ function ParamChip({ label, value }) {
 
 export default function LayerNode({ id, data }) {
   const { layerType, config, bootDelay = 0 } = data
-  const shapeResults = useGraphStore(s => s.shapeResults)
-  const format = useGraphStore(s => s.format)
+  const shapeResults  = useGraphStore(s => s.shapeResults)
+  const format        = useGraphStore(s => s.format)
   const selectedNodeId = useGraphStore(s => s.selectedNodeId)
-  const selectNode = useGraphStore(s => s.selectNode)
-  const deselectNode = useGraphStore(s => s.deselectNode)
-  const rippleNodes = useGraphStore(s => s.rippleNodes)
-  const [booted, setBooted] = useState(false)
-  const [rippling, setRippling] = useState(false)
+  const selectNode    = useGraphStore(s => s.selectNode)
+  const deselectNode  = useGraphStore(s => s.deselectNode)
+  const rippleNodes   = useGraphStore(s => s.rippleNodes)
+  const [booted, setBooted]       = useState(false)
+  const [rippling, setRippling]   = useState(false)
   const prevFormat = useRef(format)
   const [shapeFliping, setShapeFlipping] = useState(false)
 
@@ -59,35 +62,33 @@ export default function LayerNode({ id, data }) {
     }
   }, [format])
 
-  const result = shapeResults[id]
-  const inputShape = result?.inputShape ?? null
+  const result      = shapeResults[id]
+  const inputShape  = result?.inputShape  ?? null
   const outputShape = result?.outputShape ?? null
-  const hasError = !!result?.error
-  const isSelected = selectedNodeId === id
+  const hasError    = !!result?.error
+  const isSelected  = selectedNodeId === id
 
-  const params = inputShape ? countParams(layerType, inputShape, config) : 0
+  const params     = inputShape ? countParams(layerType, inputShape, config) : 0
   const highParams = params > 5e6
 
   const accentColor = LAYER_COLORS[layerType] || '#00E5FF'
-  const badge = LAYER_TYPE_BADGE[layerType] || '??'
+  const badge       = LAYER_TYPE_BADGE[layerType] || '??'
 
-  // Node glow class
   let glowClass = 'node-idle'
-  if (isSelected) glowClass = 'node-selected'
-  else if (hasError) glowClass = 'node-error error-pulse-anim'
-  else if (highParams) glowClass = 'node-warning'
-  if (rippling) glowClass += ' shape-ripple'
+  if (isSelected)       glowClass = 'node-selected'
+  else if (hasError)    glowClass = 'node-error error-pulse-anim'
+  else if (highParams)  glowClass = 'node-warning'
+  if (rippling)         glowClass += ' shape-ripple'
 
-  // Render config chips by layer type
   const renderConfigChips = () => {
     switch (layerType) {
       case 'Conv2D':
         return (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px 12px' }}>
             <ParamChip label="Filters" value={config.filters ?? 64} />
-            <ParamChip label="Kernel" value={`${config.kernelSize ?? 3}×${config.kernelSize ?? 3}`} />
-            <ParamChip label="Stride" value={config.stride ?? 1} />
-            <ParamChip label="Pad" value={config.padding ?? 0} />
+            <ParamChip label="Kernel"  value={`${config.kernelSize ?? 3}×${config.kernelSize ?? 3}`} />
+            <ParamChip label="Stride"  value={config.stride ?? 1} />
+            <ParamChip label="Pad"     value={config.padding ?? 0} />
             <ParamChip label="Dilation" value={config.dilation ?? 1} />
           </div>
         )
@@ -96,7 +97,7 @@ export default function LayerNode({ id, data }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px 12px' }}>
             <ParamChip label="Kernel" value={`${config.kernelSize ?? 2}×${config.kernelSize ?? 2}`} />
             <ParamChip label="Stride" value={config.stride ?? 2} />
-            <ParamChip label="Pad" value={config.padding ?? 0} />
+            <ParamChip label="Pad"    value={config.padding ?? 0} />
           </div>
         )
       case 'Dense':
@@ -108,7 +109,7 @@ export default function LayerNode({ id, data }) {
       case 'BatchNorm':
         return (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
-            <ParamChip label="eps" value={config.eps?.toExponential(0) ?? '1e-5'} />
+            <ParamChip label="eps"      value={config.eps?.toExponential(0) ?? '1e-5'} />
             <ParamChip label="momentum" value={config.momentum ?? 0.1} />
           </div>
         )
@@ -124,6 +125,25 @@ export default function LayerNode({ id, data }) {
             no parameters
           </div>
         )
+      case 'Reshape': {
+        const { targetC, targetH, targetW } = config
+        const parts = [targetC, targetH, targetW].filter(d => d !== undefined && d !== null)
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px 12px' }}>
+            {targetC !== undefined && <ParamChip label="C" value={targetC} />}
+            {targetH !== undefined && <ParamChip label="H" value={targetH} />}
+            {targetW !== undefined && <ParamChip label="W" value={targetW} />}
+          </div>
+        )
+      }
+      case 'Permute': {
+        const perm = config.permutation ?? [0, 1, 2, 3]
+        return (
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>
+            [{perm.join(', ')}]
+          </div>
+        )
+      }
       default:
         return null
     }
@@ -143,7 +163,7 @@ export default function LayerNode({ id, data }) {
       }}
       onClick={() => isSelected ? deselectNode() : selectNode(id)}
     >
-      {/* Header */}
+
       <div style={{ padding: '10px 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
@@ -154,8 +174,7 @@ export default function LayerNode({ id, data }) {
           <span style={{
             fontFamily: 'Syne', fontWeight: 700, fontSize: 13,
             color: hasError ? '#FF6B35' : '#fff',
-            letterSpacing: '0.04em',
-            transition: 'color 0.3s ease',
+            letterSpacing: '0.04em', transition: 'color 0.3s ease',
           }}>
             {layerType}
           </span>
@@ -163,7 +182,7 @@ export default function LayerNode({ id, data }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{
             fontFamily: 'JetBrains Mono', fontSize: 9,
-            background: hasError ? 'rgba(255,107,53,0.12)' : `rgba(${accentColor === '#00E5FF' ? '0,229,255' : '0,229,255'},0.1)`,
+            background: hasError ? 'rgba(255,107,53,0.12)' : `${accentColor}1A`,
             border: `1px solid ${hasError ? 'rgba(255,107,53,0.3)' : `${accentColor}40`}`,
             color: hasError ? '#FF6B35' : accentColor,
             padding: '1px 7px', borderRadius: 4, letterSpacing: '0.06em',
@@ -181,14 +200,13 @@ export default function LayerNode({ id, data }) {
 
       <div className="layer-node-divider" />
 
-      {/* Config chips */}
       <div style={{ padding: '8px 14px' }}>
         {renderConfigChips()}
       </div>
 
       <div className="layer-node-divider" />
 
-      {/* Shapes */}
+     
       <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em' }}>IN</span>
@@ -205,15 +223,14 @@ export default function LayerNode({ id, data }) {
           <span className={shapeFliping ? 'shape-flip' : ''} style={{
             fontFamily: 'JetBrains Mono', fontSize: 10,
             color: hasError ? '#FF6B35' : '#39FF14',
-            letterSpacing: '0.02em',
-            fontWeight: 500,
+            letterSpacing: '0.02em', fontWeight: 500,
           }}>
             {outputShape ? formatShape(outputShape, format) : '???'}
           </span>
         </div>
       </div>
 
-      {/* Params */}
+  
       {params > 0 && (
         <>
           <div className="layer-node-divider" />
@@ -230,24 +247,20 @@ export default function LayerNode({ id, data }) {
         </>
       )}
 
-      {/* Inline error message */}
+      {/* Inline error */}
       {hasError && result?.message && (
         <div style={{
-          margin: '0 10px 10px',
-          padding: '6px 10px',
+          margin: '0 10px 10px', padding: '6px 10px',
           background: 'rgba(255,107,53,0.08)',
           border: '1px solid rgba(255,107,53,0.25)',
           borderRadius: 6,
-          fontFamily: 'JetBrains Mono',
-          fontSize: 9,
-          color: '#FF6B35',
-          lineHeight: 1.5,
+          fontFamily: 'JetBrains Mono', fontSize: 9, color: '#FF6B35', lineHeight: 1.5,
         }}>
           {result.message}
         </div>
       )}
 
-      <Handle type="target" position={Position.Top} style={{ top: -6 }} />
+      <Handle type="target" position={Position.Top}    style={{ top: -6    }} />
       <Handle type="source" position={Position.Bottom} style={{ bottom: -6 }} />
     </div>
   )

@@ -1,24 +1,32 @@
-import { Grid2X2, Minimize2, Layers, Minus, SlidersHorizontal, Dices, GitMerge } from 'lucide-react'
+import { Grid2X2, Minimize2, Layers, Minus, SlidersHorizontal, Dices, GitMerge, Shuffle, ArrowLeftRight } from 'lucide-react'
 import { LAYER_COLORS, LAYER_TYPE_BADGE, LAYER_TOOLTIPS } from '../constants/layerDefaults.js'
 import { useState } from 'react'
 
 const LAYERS_CONFIG = [
-  { type: 'Conv2D', icon: Grid2X2, desc: 'Convolutional layer with learnable filters' },
-  { type: 'MaxPool2D', icon: Minimize2, desc: '2D max pooling for spatial downsampling' },
-  { type: 'Dense', icon: Layers, desc: 'Fully connected linear transformation' },
-  { type: 'Flatten', icon: Minus, desc: 'Flatten multi-dim tensor to 1D' },
-  { type: 'BatchNorm', icon: SlidersHorizontal, desc: 'Normalize activations per batch' },
-  { type: 'Dropout', icon: Dices, desc: 'Randomly zero activations during training' },
-  { type: 'Merge', icon: GitMerge, desc: 'Merge two branches via ADD or CONCAT' },
+  { type: 'Conv2D',    icon: Grid2X2,          desc: 'Convolutional layer with learnable filters'  },
+  { type: 'MaxPool2D', icon: Minimize2,         desc: '2D max pooling for spatial downsampling'     },
+  { type: 'Dense',     icon: Layers,            desc: 'Fully connected linear transformation'       },
+  { type: 'Flatten',   icon: Minus,             desc: 'Flatten multi-dim tensor to 1D'              },
+  { type: 'BatchNorm', icon: SlidersHorizontal, desc: 'Normalize activations per batch'             },
+  { type: 'Dropout',   icon: Dices,             desc: 'Randomly zero activations during training'   },
+  { type: 'Merge',     icon: GitMerge,          desc: 'Merge two branches via ADD or CONCAT'        },
+  { type: 'Reshape',   icon: Shuffle,           desc: 'Reshape tensor to a new [C, H, W] layout'   },
+  { type: 'Permute',   icon: ArrowLeftRight,    desc: 'Reorder tensor dimensions (transpose/permute)' },
 ]
+
+// Types that get a subtle separator above them in the palette
+const SEPARATOR_BEFORE = new Set(['Merge', 'Reshape'])
 
 function LayerChip({ type, icon: Icon, desc }) {
   const [hovering, setHovering] = useState(false)
-  const color = LAYER_COLORS[type] || '#00E5FF'
-  const badge = LAYER_TYPE_BADGE[type] || '??'
-  const tooltip = LAYER_TOOLTIPS[type] || ''
+  const color   = LAYER_COLORS[type]    || '#00E5FF'
+  const badge   = LAYER_TYPE_BADGE[type] || '??'
+  const tooltip = LAYER_TOOLTIPS[type]   || ''
 
-  const isMerge = type === 'Merge'
+  const isMerge   = type === 'Merge'
+  const isReshape = type === 'Reshape'
+  const isPermute = type === 'Permute'
+  const isShapeMath = isReshape || isPermute
 
   const onDragStart = (e) => {
     e.dataTransfer.setData('application/reactflow', type)
@@ -45,9 +53,12 @@ function LayerChip({ type, icon: Icon, desc }) {
           transition: 'all 0.15s ease',
           userSelect: 'none',
           boxShadow: hovering ? `0 0 12px rgba(0,229,255,0.08)` : 'none',
-          // Subtle distinction for Merge
           ...(isMerge && {
             borderTop: '1px solid rgba(245,158,11,0.12)',
+            marginTop: 4,
+          }),
+          ...(isReshape && {
+            borderTop: '1px solid rgba(129,140,248,0.12)',
             marginTop: 4,
           }),
         }}
@@ -78,7 +89,7 @@ function LayerChip({ type, icon: Icon, desc }) {
         </div>
       </div>
 
-      {/* Tooltip */}
+      
       {hovering && (
         <div style={{
           position: 'absolute',
@@ -90,7 +101,7 @@ function LayerChip({ type, icon: Icon, desc }) {
           borderRadius: 6,
           padding: '6px 10px',
           zIndex: 9999,
-          width: 170,
+          width: 175,
           pointerEvents: 'none',
           boxShadow: '0 0 20px rgba(0,0,0,0.5)',
         }}>
@@ -105,14 +116,32 @@ function LayerChip({ type, icon: Icon, desc }) {
           </div>
           {isMerge && (
             <div style={{
-              marginTop: 6,
-              paddingTop: 5,
+              marginTop: 6, paddingTop: 5,
               borderTop: '1px solid rgba(245,158,11,0.15)',
               fontFamily: 'JetBrains Mono', fontSize: 8,
-              color: 'rgba(245,158,11,0.7)',
-              lineHeight: 1.5,
+              color: 'rgba(245,158,11,0.7)', lineHeight: 1.5,
             }}>
               Accepts 2 inputs.<br />Toggle ADD ↔ CONCAT on node.
+            </div>
+          )}
+          {isReshape && (
+            <div style={{
+              marginTop: 6, paddingTop: 5,
+              borderTop: '1px solid rgba(129,140,248,0.15)',
+              fontFamily: 'JetBrains Mono', fontSize: 8,
+              color: 'rgba(129,140,248,0.7)', lineHeight: 1.5,
+            }}>
+              Set target [C, H, W] in inspector.<br />Element count must match input.
+            </div>
+          )}
+          {isPermute && (
+            <div style={{
+              marginTop: 6, paddingTop: 5,
+              borderTop: '1px solid rgba(52,211,153,0.15)',
+              fontFamily: 'JetBrains Mono', fontSize: 8,
+              color: 'rgba(52,211,153,0.7)', lineHeight: 1.5,
+            }}>
+              Edit dim order in inspector.<br />e.g. [0,2,3,1] → NHWC
             </div>
           )}
         </div>
@@ -132,15 +161,11 @@ export default function LayerPalette() {
       flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      {/* Header */}
-      <div style={{
-        padding: '14px 16px 10px',
-        borderBottom: '1px solid rgba(0,229,255,0.06)',
-      }}>
+   
+      <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid rgba(0,229,255,0.06)' }}>
         <span style={{
           fontFamily: 'Syne', fontWeight: 700, fontSize: 10,
-          color: '#00E5FF', letterSpacing: '0.18em',
-          textTransform: 'uppercase',
+          color: '#00E5FF', letterSpacing: '0.18em', textTransform: 'uppercase',
         }}>
           LAYERS
         </span>
@@ -149,29 +174,23 @@ export default function LayerPalette() {
         </div>
       </div>
 
-      {/* Layer chips */}
+    
       <div style={{
-        flex: 1,
-        overflowY: 'auto',
+        flex: 1, overflowY: 'auto',
         padding: '12px 10px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
+        display: 'flex', flexDirection: 'column', gap: 8,
       }}>
         {LAYERS_CONFIG.map(({ type, icon, desc }) => (
           <LayerChip key={type} type={type} icon={icon} desc={desc} />
         ))}
       </div>
 
-      {/* Footer hint */}
+     
       <div style={{
         padding: '10px 14px',
         borderTop: '1px solid rgba(0,229,255,0.06)',
-        fontFamily: 'JetBrains Mono',
-        fontSize: 8,
-        color: 'rgba(255,255,255,0.18)',
-        lineHeight: 1.6,
-        textAlign: 'center',
+        fontFamily: 'JetBrains Mono', fontSize: 8,
+        color: 'rgba(255,255,255,0.18)', lineHeight: 1.6, textAlign: 'center',
       }}>
         Drop layers onto the canvas.<br />Connect handles to build your network.
       </div>
