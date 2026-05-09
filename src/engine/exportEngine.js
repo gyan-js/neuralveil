@@ -16,18 +16,19 @@ export function exportToPyTorch(nodes, edges, inputShape) {
     layerCounters[key] = (layerCounters[key] || 0) + 1
     const suffix = layerCounters[key]
     const names = {
-      conv2d: `conv${suffix}`,
+      conv2d:    `conv${suffix}`,
       maxpool2d: `pool${suffix}`,
-      dense: `fc${suffix}`,
-      flatten: `flatten`,
+      dense:     `fc${suffix}`,
+      flatten:   `flatten`,
       batchnorm: `bn${suffix}`,
-      dropout: `dropout${suffix === 1 ? '' : suffix}`,
-      merge: `merge${suffix}`,
+      dropout:   `dropout${suffix === 1 ? '' : suffix}`,
+      merge:     `merge${suffix}`,
+      reshape:   `reshape${suffix}`,
+      permute:   `permute${suffix}`,
     }
     return names[key] || `layer${suffix}`
   }
 
-  // Build a nodeId → varName map so forward() can reference tensors by name
   const varNameMap = {}
   const inputNodeId = inputNode?.id
   if (inputNodeId) varNameMap[inputNodeId] = 'x'
@@ -47,7 +48,6 @@ export function exportToPyTorch(nodes, edges, inputShape) {
     const inResult = sourceId ? results[sourceId] : null
     const inShape = inResult?.outputShape || null
 
-    // Determine output variable name for this node
     const outVar = name.replace(/\d+$/, '') + (layerCounters[type.toLowerCase()] || 1)
     varNameMap[node.id] = outVar
 
@@ -97,20 +97,29 @@ export function exportToPyTorch(nodes, edges, inputShape) {
       }
       case 'Merge': {
         const mode = cfg.mode || 'add'
-      
-        const parentVars = inEdges
-          .map(e => varNameMap[e.source])
-          .filter(Boolean)
+        const parentVars = inEdges.map(e => varNameMap[e.source]).filter(Boolean)
         const tensorsStr = parentVars.join(', ')
-
-        // ADD → no nn.Module needed, just tensor addition
-        // CONCAT → torch.cat along dim=1
         if (mode === 'add') {
           forwardLine = `        ${outVar} = ${parentVars.join(' + ')}  # residual / skip ADD`
         } else {
           forwardLine = `        ${outVar} = torch.cat([${tensorsStr}], dim=1)  # skip CONCAT`
         }
-        // Merge has no init line (no learnable params)
+        break
+      }
+      case 'Reshape': {
+        // PyTorch: x.view(x.size(0), C, H, W)
+        const { targetC, targetH, targetW } = cfg
+        const dims = [targetC, targetH, targetW].filter(d => d !== undefined && d !== null)
+        const dimsStr = dims.join(', ')
+        // No nn.Module needed — just .view() in forward
+        forwardLine = `        ${outVar} = ${varNameMap[sourceId] || 'x'}.view(${varNameMap[sourceId] || 'x'}.size(0), ${dimsStr})  # reshape`
+        break
+      }
+      case 'Permute': {
+        // PyTorch: x.permute(0, 2, 3, 1)
+        const { permutation = [0, 1, 2, 3] } = cfg
+        const permStr = permutation.join(', ')
+        forwardLine = `        ${outVar} = ${varNameMap[sourceId] || 'x'}.permute(${permStr}).contiguous()  # permute`
         break
       }
     }
@@ -120,7 +129,8 @@ export function exportToPyTorch(nodes, edges, inputShape) {
   }
 
   const [b, c, h, w] = inputShape
-  const batchCode = b === 1 ? '1' : b
+ 
+  const batchCode = (b === null || b === undefined) ? 2 : b === 1 ? 1 : b
 
   const code = `import torch
 import torch.nn as nn
@@ -139,7 +149,7 @@ ${forwardLines.join('\n')}
 if __name__ == '__main__':
     model = GeneratedModel()
     print(model)
-    x = torch.randn(${batchCode}, ${c}, ${h}, ${w})
+    x = torch.randn(${batchCode}, ${c ?? '???'}, ${h ?? '???'}, ${w ?? '???'})
     out = model(x)
     print(f"Output shape: {out.shape}")
 `

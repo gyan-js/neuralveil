@@ -1,3 +1,24 @@
+// ─── NULL-SAFE MATH HELPERS ──────────────────────────────────────────────────
+// null represents a dynamic / unknown dimension (PyTorch's None / -1)
+// null * anything = null,  null + anything = null
+
+function safeMul(a, b) {
+  if (a === null || b === null) return null
+  return a * b
+}
+
+function safeAdd(a, b) {
+  if (a === null || b === null) return null
+  return a + b
+}
+
+function safeFloorDiv(num, den) {
+  if (num === null || den === null) return null
+  return Math.floor(num / den)
+}
+
+// ─── LAYER INFERENCE ─────────────────────────────────────────────────────────
+
 export function inferConv2D(inputShape, { filters, kernelSize, stride, padding, dilation = 1 }) {
   if (!inputShape || inputShape.length < 2) {
     return { error: 'MISSING_INPUT', shape: null }
@@ -8,11 +29,18 @@ export function inferConv2D(inputShape, { filters, kernelSize, stride, padding, 
     : [inputShape[0], inputShape[1], null, null]
 
   if (inputShape.length === 2) {
-    return { error: 'NOT_FLATTENED_INPUT', shape: null,
-      message: 'Conv2D expects a 4D tensor [B,C,H,W]. Received a 2D tensor. Remove Flatten or reorder layers.' }
+    return {
+      error: 'NOT_FLATTENED_INPUT', shape: null,
+      message: 'Conv2D expects a 4D tensor [B,C,H,W]. Received a 2D tensor. Remove Flatten or reorder layers.',
+    }
   }
 
-  if (!H || !W) return { error: 'INVALID_SHAPE', shape: null }
+  if (H === undefined || W === undefined) return { error: 'INVALID_SHAPE', shape: null }
+
+  // Null spatial dims → propagate null
+  if (H === null || W === null) {
+    return { shape: [batch, filters, null, null], error: null }
+  }
 
   const effectiveKernel = dilation * (kernelSize - 1) + 1
   const outH = Math.floor((H + 2 * padding - effectiveKernel) / stride + 1)
@@ -36,11 +64,16 @@ export function inferConv2D(inputShape, { filters, kernelSize, stride, padding, 
 
 export function inferMaxPool2D(inputShape, { kernelSize, stride, padding = 0 }) {
   if (!inputShape || inputShape.length !== 4) {
-    return { error: 'INVALID_INPUT', shape: null,
-      message: 'MaxPool2D expects a 4D tensor [B,C,H,W].' }
+    return { error: 'INVALID_INPUT', shape: null, message: 'MaxPool2D expects a 4D tensor [B,C,H,W].' }
   }
 
   const [batch, channels, H, W] = inputShape
+
+  // Null spatial dims → propagate null
+  if (H === null || W === null) {
+    return { shape: [batch, channels, null, null], error: null }
+  }
+
   const outH = Math.floor((H + 2 * padding - kernelSize) / stride + 1)
   const outW = Math.floor((W + 2 * padding - kernelSize) / stride + 1)
 
@@ -80,7 +113,9 @@ export function inferDense(inputShape, { units }) {
 export function inferFlatten(inputShape) {
   if (!inputShape) return { error: 'MISSING_INPUT', shape: null }
   const [batch, ...rest] = inputShape
-  const flat = rest.reduce((a, b) => a * b, 1)
+  // If any spatial dim is null the flat size is unknown
+  const hasNull = rest.some(d => d === null)
+  const flat = hasNull ? null : rest.reduce((a, b) => a * b, 1)
   return { shape: [batch, flat], error: null }
 }
 
@@ -98,12 +133,86 @@ export function inferDropout(inputShape) {
 
 
 /**
+ * inferReshape — user specifies target shape as [C, H, W] (batch is preserved).
+ * Validates that product of new dims equals product of old dims (null-aware).
+ */
+export function inferReshape(inputShape, { targetC, targetH, targetW }) {
+  if (!inputShape) return { error: 'MISSING_INPUT', shape: null }
+
+  const [batch, ...rest] = inputShape
+  const inProduct = rest.every(d => d !== null)
+    ? rest.reduce((a, b) => a * b, 1)
+    : null
+
+  const outDims = [targetC, targetH, targetW].filter(d => d !== undefined && d !== null)
+
+  if (outDims.length === 0) {
+    return { error: 'INVALID_TARGET', shape: null, message: 'Reshape: specify at least one target dimension.' }
+  }
+
+  const outProduct = outDims.reduce((a, b) => a * b, 1)
+
+  // Only validate when both products are known
+  if (inProduct !== null && outProduct !== inProduct) {
+    return {
+      error: 'RESHAPE_MISMATCH',
+      shape: null,
+      message: `Reshape: input has ${inProduct} elements but target shape has ${outProduct} elements. ` +
+        `They must be equal.`,
+    }
+  }
+
+  // Build output shape: [batch, targetC, targetH?, targetW?]
+  const outShape = [batch, targetC]
+  if (targetH !== undefined && targetH !== null) outShape.push(targetH)
+  if (targetW !== undefined && targetW !== null) outShape.push(targetW)
+
+  return { shape: outShape, error: null }
+}
+
+
+/**
+ * inferPermute — user specifies dim order as [0,1,2,3].
+ * Output dims are input dims reordered.
+ * e.g. NCHW [B,C,H,W] with perm [0,2,3,1] → NHWC [B,H,W,C]
+ */
+export function inferPermute(inputShape, { permutation }) {
+  if (!inputShape) return { error: 'MISSING_INPUT', shape: null }
+  if (!permutation || !Array.isArray(permutation)) {
+    return { error: 'MISSING_PERMUTATION', shape: null, message: 'Permute: provide a permutation array.' }
+  }
+
+  const rank = inputShape.length
+
+  if (permutation.length !== rank) {
+    return {
+      error: 'PERMUTATION_LENGTH',
+      shape: null,
+      message: `Permute: input is ${rank}D but permutation has ${permutation.length} entries. They must match.`,
+    }
+  }
+
+  // Validate all indices are valid and unique
+  const sorted = [...permutation].sort((a, b) => a - b)
+  for (let i = 0; i < rank; i++) {
+    if (sorted[i] !== i) {
+      return {
+        error: 'INVALID_PERMUTATION',
+        shape: null,
+        message: `Permute: [${permutation.join(',')}] is not a valid permutation of [0..${rank - 1}].`,
+      }
+    }
+  }
+
+  const outShape = permutation.map(i => inputShape[i])
+  return { shape: outShape, error: null }
+}
+
+
+/**
  * inferMerge — handles ADD and CONCAT modes for skip/residual connections
- * @param {Array<Array<number>>} shapes — array of input shapes from all parent nodes
- * @param {string} mode — 'add' | 'concat'
  */
 export function inferMerge(shapes, mode = 'add') {
-  // Filter out null/undefined shapes
   const validShapes = shapes.filter(s => s && s.length > 0)
 
   if (validShapes.length === 0) {
@@ -117,10 +226,10 @@ export function inferMerge(shapes, mode = 'add') {
   const ref = validShapes[0]
 
   if (mode === 'add') {
-    // ADD: all shapes must be identical
     for (let i = 1; i < validShapes.length; i++) {
       const s = validShapes[i]
-      if (s.length !== ref.length || s.some((d, idx) => d !== ref[idx])) {
+      // Skip mismatch check when either dim is null (dynamic)
+      if (s.length !== ref.length || s.some((d, idx) => d !== null && ref[idx] !== null && d !== ref[idx])) {
         return {
           error: 'SHAPE_MISMATCH',
           shape: null,
@@ -134,10 +243,8 @@ export function inferMerge(shapes, mode = 'add') {
   }
 
   if (mode === 'concat') {
-    // CONCAT along channel dim (dim=1 for 4D, dim=1 for 2D)
-    // Validate batch and spatial dims match, sum channels
     const refBatch = ref[0]
-    const refSpatial = ref.slice(2) // H, W (or empty for 2D)
+    const refSpatial = ref.slice(2)
 
     for (let i = 1; i < validShapes.length; i++) {
       const s = validShapes[i]
@@ -146,22 +253,20 @@ export function inferMerge(shapes, mode = 'add') {
         return {
           error: 'SHAPE_MISMATCH',
           shape: null,
-          message: `CONCAT merge requires same tensor rank. ` +
-            `Input 1 is ${ref.length}D, Input ${i + 1} is ${s.length}D.`,
+          message: `CONCAT merge requires same tensor rank. Input 1 is ${ref.length}D, Input ${i + 1} is ${s.length}D.`,
         }
       }
 
-      if (s[0] !== refBatch) {
+      if (s[0] !== refBatch && s[0] !== null && refBatch !== null) {
         return {
           error: 'BATCH_MISMATCH',
           shape: null,
-          message: `CONCAT merge: batch sizes must match. ` +
-            `Input 1 batch=${refBatch}, Input ${i + 1} batch=${s[0]}.`,
+          message: `CONCAT merge: batch sizes must match. Input 1 batch=${refBatch}, Input ${i + 1} batch=${s[0]}.`,
         }
       }
 
       const sSpatial = s.slice(2)
-      if (sSpatial.some((d, idx) => d !== refSpatial[idx])) {
+      if (sSpatial.some((d, idx) => d !== null && refSpatial[idx] !== null && d !== refSpatial[idx])) {
         return {
           error: 'SPATIAL_MISMATCH',
           shape: null,
@@ -172,8 +277,9 @@ export function inferMerge(shapes, mode = 'add') {
       }
     }
 
-    // Sum channels (dim 1)
-    const sumC = validShapes.reduce((acc, s) => acc + s[1], 0)
+    // Sum channels (dim 1) — null if any channel dim is null
+    const hasNullC = validShapes.some(s => s[1] === null)
+    const sumC = hasNullC ? null : validShapes.reduce((acc, s) => acc + s[1], 0)
     const outShape = [refBatch, sumC, ...refSpatial]
     return { shape: outShape, error: null }
   }
@@ -184,12 +290,14 @@ export function inferMerge(shapes, mode = 'add') {
 
 export function inferLayer(layerType, inputShape, config) {
   switch (layerType) {
-    case 'Conv2D': return inferConv2D(inputShape, config)
+    case 'Conv2D':   return inferConv2D(inputShape, config)
     case 'MaxPool2D': return inferMaxPool2D(inputShape, config)
-    case 'Dense': return inferDense(inputShape, config)
-    case 'Flatten': return inferFlatten(inputShape)
+    case 'Dense':    return inferDense(inputShape, config)
+    case 'Flatten':  return inferFlatten(inputShape)
     case 'BatchNorm': return inferBatchNorm(inputShape)
-    case 'Dropout': return inferDropout(inputShape)
+    case 'Dropout':  return inferDropout(inputShape)
+    case 'Reshape':  return inferReshape(inputShape, config)
+    case 'Permute':  return inferPermute(inputShape, config)
     // Merge is handled separately in propagateGraph (needs multiple inputs)
     default: return { shape: inputShape, error: null }
   }
@@ -225,14 +333,12 @@ export function topoSort(nodes, edges) {
   return sorted
 }
 
+
 export function propagateGraph(nodes, edges, inputShape) {
   const results = {}
   const sorted = topoSort(nodes, edges)
-
-  // Map: nodeId → output shape
   const outputOf = {}
 
-  // Find InputNode
   const inputNode = nodes.find(n => n.type === 'inputNode' || n.data?.layerType === 'Input')
   if (inputNode) {
     outputOf[inputNode.id] = inputShape
@@ -249,11 +355,9 @@ export function propagateGraph(nodes, edges, inputShape) {
     if (!node) continue
     if (node.data?.layerType === 'Input') continue
 
-    // Collect ALL incoming parent shapes (supports multi-input merge nodes)
     const incomingEdges = edges.filter(e => e.target === nodeId)
     const parentShapes = incomingEdges.map(e => outputOf[e.source] || null)
 
-    // For Merge nodes, pass all parent shapes to inferMerge
     if (node.data?.layerType === 'Merge') {
       const mode = node.data?.config?.mode || 'add'
 
@@ -270,10 +374,9 @@ export function propagateGraph(nodes, edges, inputShape) {
       }
 
       const { shape, error, message } = inferMerge(parentShapes, mode)
-
       results[nodeId] = {
-        inputShapes: parentShapes,          // all parent shapes for display
-        inputShape: parentShapes[0] || null, // first shape for compat
+        inputShapes: parentShapes,
+        inputShape: parentShapes[0] || null,
         outputShape: shape,
         error,
         message,
@@ -318,41 +421,53 @@ export function propagateGraph(nodes, edges, inputShape) {
   return results
 }
 
-/**
- * Generate human-readable error messages
- */
+
 export function generateErrorMessage(layerType, inputShape, config, errorType) {
   if (!errorType) return null
 
   const shapeStr = inputShape ? formatShape(inputShape) : 'unknown'
 
   const messages = {
-    KERNEL_TOO_LARGE: `Kernel size too large for input ${shapeStr}. Reduce kernel size or add padding.`,
-    NOT_FLATTENED: `${layerType} received ${shapeStr}. A Flatten layer is required before Dense.`,
-    NOT_FLATTENED_INPUT: `Conv2D requires a 4D tensor. Got ${shapeStr}. Check layer ordering.`,
-    NEGATIVE_DIM: `Output dimension became negative. Input ${shapeStr} is too small for the given parameters.`,
-    MISSING_INPUT: `No input connected to this layer.`,
-    INVALID_INPUT: `Invalid input shape ${shapeStr} for ${layerType}.`,
-    NO_INPUT: `This layer has no upstream connection.`,
-    SHAPE_MISMATCH: `Shape mismatch in ${layerType}. Inputs must have compatible shapes.`,
-    BATCH_MISMATCH: `Batch size mismatch in ${layerType}.`,
-    SPATIAL_MISMATCH: `Spatial dimensions mismatch in ${layerType}.`,
-    SINGLE_INPUT: `${layerType} requires at least 2 inputs.`,
+    KERNEL_TOO_LARGE:      `Kernel size too large for input ${shapeStr}. Reduce kernel size or add padding.`,
+    NOT_FLATTENED:         `${layerType} received ${shapeStr}. A Flatten layer is required before Dense.`,
+    NOT_FLATTENED_INPUT:   `Conv2D requires a 4D tensor. Got ${shapeStr}. Check layer ordering.`,
+    NEGATIVE_DIM:          `Output dimension became negative. Input ${shapeStr} is too small for the given parameters.`,
+    MISSING_INPUT:         `No input connected to this layer.`,
+    INVALID_INPUT:         `Invalid input shape ${shapeStr} for ${layerType}.`,
+    NO_INPUT:              `This layer has no upstream connection.`,
+    SHAPE_MISMATCH:        `Shape mismatch in ${layerType}. Inputs must have compatible shapes.`,
+    BATCH_MISMATCH:        `Batch size mismatch in ${layerType}.`,
+    SPATIAL_MISMATCH:      `Spatial dimensions mismatch in ${layerType}.`,
+    SINGLE_INPUT:          `${layerType} requires at least 2 inputs.`,
+    RESHAPE_MISMATCH:      `Reshape: element count mismatch. Input and target shapes must have equal total elements.`,
+    PERMUTATION_LENGTH:    `Permute: permutation length must match tensor rank.`,
+    INVALID_PERMUTATION:   `Permute: permutation must be a valid reordering of dimension indices.`,
+    MISSING_PERMUTATION:   `Permute: no permutation specified.`,
+    INVALID_TARGET:        `Reshape: no target shape specified.`,
   }
 
   return messages[errorType] || `Shape error in ${layerType}: ${errorType}`
 }
 
+
 /**
- * Format shape array as string: [B, C, H, W]
+ * Format shape array as string.
+ * null dims display as 'N' (dynamic batch) or '?' (dynamic spatial).
  */
 export function formatShape(shape, format = 'NCHW') {
   if (!shape) return '???'
+
+  const fmt = (d, isBatch = false) => {
+    if (d === null) return isBatch ? 'N' : '?'
+    return String(d)
+  }
+
   if (format === 'NHWC' && shape.length === 4) {
     const [b, c, h, w] = shape
-    return `[${b}, ${h}, ${w}, ${c}]`
+    return `[${fmt(b, true)}, ${fmt(h)}, ${fmt(w)}, ${fmt(c)}]`
   }
-  return `[${shape.join(', ')}]`
+
+  return `[${shape.map((d, i) => fmt(d, i === 0)).join(', ')}]`
 }
 
 
@@ -361,17 +476,20 @@ export function countParams(layerType, inputShape, config) {
 
   switch (layerType) {
     case 'Conv2D': {
-      const inChannels = inputShape.length === 4 ? inputShape[1] : inputShape[1]
+      const inChannels = inputShape[1]
+      if (inChannels === null) return 0
       const { filters = 64, kernelSize = 3 } = config
       return filters * inChannels * kernelSize * kernelSize + filters
     }
     case 'Dense': {
       const inFeatures = inputShape[inputShape.length - 1]
+      if (inFeatures === null) return 0
       const { units = 256 } = config
       return inFeatures * units + units
     }
     case 'BatchNorm': {
       const channels = inputShape[1]
+      if (channels === null) return 0
       return channels * 4 // basically 4 channelss were added here ->>>> gamma, beta, running_mean, running_var !
     }
     default:
