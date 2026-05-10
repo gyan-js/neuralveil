@@ -493,7 +493,7 @@ export default function TopBar() {
               fontFamily: 'Syne', fontWeight: 400, fontSize: 15,
               color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginLeft: 4,
             }}>
-              v.1.1.0
+              v2.0.3
             </span>
           </div>
         </div>
