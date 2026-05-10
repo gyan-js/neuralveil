@@ -1,0 +1,31 @@
+{
+    "version": "1.0",
+    "presetName": "VGG Block",
+    "format": "NCHW",
+    "inputShape": [1, 3, 224, 224],
+    "nodes": [
+      { "id": "input",  "type": "Input",    "position": { "x": 300, "y": 30  }, "config": {} },
+      { "id": "conv1",  "type": "Conv2D",   "position": { "x": 300, "y": 155 }, "config": { "filters": 64,  "kernelSize": 3, "stride": 1, "padding": 1, "dilation": 1 } },
+      { "id": "conv2",  "type": "Conv2D",   "position": { "x": 300, "y": 285 }, "config": { "filters": 64,  "kernelSize": 3, "stride": 1, "padding": 1, "dilation": 1 } },
+      { "id": "pool1",  "type": "MaxPool2D","position": { "x": 300, "y": 415 }, "config": { "kernelSize": 2, "stride": 2, "padding": 0 } },
+      { "id": "conv3",  "type": "Conv2D",   "position": { "x": 300, "y": 545 }, "config": { "filters": 128, "kernelSize": 3, "stride": 1, "padding": 1, "dilation": 1 } },
+      { "id": "conv4",  "type": "Conv2D",   "position": { "x": 300, "y": 675 }, "config": { "filters": 128, "kernelSize": 3, "stride": 1, "padding": 1, "dilation": 1 } },
+      { "id": "pool2",  "type": "MaxPool2D","position": { "x": 300, "y": 805 }, "config": { "kernelSize": 2, "stride": 2, "padding": 0 } },
+      { "id": "flat1",  "type": "Flatten",  "position": { "x": 300, "y": 935 }, "config": {} },
+      { "id": "fc1",    "type": "Dense",    "position": { "x": 300, "y": 1065}, "config": { "units": 4096 } },
+      { "id": "drop1",  "type": "Dropout",  "position": { "x": 300, "y": 1195}, "config": { "p": 0.5 } },
+      { "id": "fc2",    "type": "Dense",    "position": { "x": 300, "y": 1325}, "config": { "units": 1000 } }
+    ],
+    "edges": [
+      { "id": "e1",  "source": "input", "target": "conv1" },
+      { "id": "e2",  "source": "conv1", "target": "conv2" },
+      { "id": "e3",  "source": "conv2", "target": "pool1" },
+      { "id": "e4",  "source": "pool1", "target": "conv3" },
+      { "id": "e5",  "source": "conv3", "target": "conv4" },
+      { "id": "e6",  "source": "conv4", "target": "pool2" },
+      { "id": "e7",  "source": "pool2", "target": "flat1" },
+      { "id": "e8",  "source": "flat1", "target": "fc1"   },
+      { "id": "e9",  "source": "fc1",   "target": "drop1" },
+      { "id": "e10", "source": "drop1", "target": "fc2"   }
+    ]
+  }

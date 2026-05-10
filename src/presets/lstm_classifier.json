@@ -1,0 +1,21 @@
+{
+    "version": "1.0",
+    "presetName": "LSTM Classifier",
+    "format": "NCHW",
+    "inputShape": [1, 3, 224, 224],
+    "nodes": [
+      { "id": "input",  "type": "Input",     "position": { "x": 300, "y": 30  }, "config": {} },
+      { "id": "embed1", "type": "Embedding", "position": { "x": 300, "y": 155 }, "config": { "num_embeddings": 10000, "embedding_dim": 256 } },
+      { "id": "lstm1",  "type": "LSTM",      "position": { "x": 300, "y": 285 }, "config": { "hidden_size": 256, "num_layers": 2, "bidirectional": true, "return_sequences": false } },
+      { "id": "drop1",  "type": "Dropout",   "position": { "x": 300, "y": 415 }, "config": { "p": 0.3 } },
+      { "id": "fc1",    "type": "Dense",     "position": { "x": 300, "y": 545 }, "config": { "units": 128 } },
+      { "id": "fc2",    "type": "Dense",     "position": { "x": 300, "y": 675 }, "config": { "units": 10  } }
+    ],
+    "edges": [
+      { "id": "e1", "source": "input",  "target": "embed1" },
+      { "id": "e2", "source": "embed1", "target": "lstm1"  },
+      { "id": "e3", "source": "lstm1",  "target": "drop1"  },
+      { "id": "e4", "source": "drop1",  "target": "fc1"    },
+      { "id": "e5", "source": "fc1",    "target": "fc2"    }
+    ]
+  }

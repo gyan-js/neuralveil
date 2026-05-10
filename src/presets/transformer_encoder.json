@@ -1,0 +1,23 @@
+{
+    "version": "1.0",
+    "presetName": "Transformer Encoder",
+    "format": "NCHW",
+    "inputShape": [1, 3, 224, 224],
+    "nodes": [
+      { "id": "input",   "type": "Input",              "position": { "x": 300, "y": 30  }, "config": {} },
+      { "id": "embed1",  "type": "Embedding",           "position": { "x": 300, "y": 155 }, "config": { "num_embeddings": 10000, "embedding_dim": 512 } },
+      { "id": "mha1",    "type": "MultiHeadAttention",  "position": { "x": 300, "y": 285 }, "config": { "embed_dim": 512, "num_heads": 8, "dropout": 0.1 } },
+      { "id": "ln1",     "type": "LayerNorm",           "position": { "x": 300, "y": 415 }, "config": {} },
+      { "id": "dense1",  "type": "Dense",               "position": { "x": 300, "y": 545 }, "config": { "units": 2048 } },
+      { "id": "dense2",  "type": "Dense",               "position": { "x": 300, "y": 675 }, "config": { "units": 512 } },
+      { "id": "ln2",     "type": "LayerNorm",           "position": { "x": 300, "y": 805 }, "config": {} }
+    ],
+    "edges": [
+      { "id": "e1", "source": "input",  "target": "embed1" },
+      { "id": "e2", "source": "embed1", "target": "mha1"   },
+      { "id": "e3", "source": "mha1",   "target": "ln1"    },
+      { "id": "e4", "source": "ln1",    "target": "dense1" },
+      { "id": "e5", "source": "dense1", "target": "dense2" },
+      { "id": "e6", "source": "dense2", "target": "ln2"    }
+    ]
+  }
