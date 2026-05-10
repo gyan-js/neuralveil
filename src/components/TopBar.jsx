@@ -5,9 +5,9 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 
 import '../styles/globals.css'
 
-// ─── PRESETS DATA ─────────────────────────────────────────────────────────────
+// ───!! IMPORTANT !!! ─────────────────────────────────────────────────────────────
 // Inline preset definitions — no file-system import needed in the browser.
-// These are the same graphs as the JSON files in src/presets/.
+// These are the same graphs as  backup are in  the JSON files in src/presets/.
 
 const PRESETS = [
   {
