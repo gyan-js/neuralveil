@@ -25,6 +25,10 @@ export function exportToPyTorch(nodes, edges, inputShape) {
       merge:     `merge${suffix}`,
       reshape:   `reshape${suffix}`,
       permute:   `permute${suffix}`,
+      multiheadattention: `attn${suffix}`,
+      lstm:      `lstm${suffix}`,
+      embedding: `embed${suffix}`,
+      layernorm: `ln${suffix}`,
     }
     return names[key] || `layer${suffix}`
   }
@@ -120,6 +124,37 @@ export function exportToPyTorch(nodes, edges, inputShape) {
         const { permutation = [0, 1, 2, 3] } = cfg
         const permStr = permutation.join(', ')
         forwardLine = `        ${outVar} = ${varNameMap[sourceId] || 'x'}.permute(${permStr}).contiguous()  # permute`
+        break
+      }
+      case 'MultiHeadAttention': {
+        const { embed_dim = 512, num_heads = 8, dropout = 0.1 } = cfg
+        initLine = `        self.${name} = nn.MultiheadAttention(embed_dim=${embed_dim}, num_heads=${num_heads}, dropout=${dropout}, batch_first=True)`
+        const src = varNameMap[sourceId] || 'x'
+        forwardLine = `        ${outVar}, _ = self.${name}(${src}, ${src}, ${src})  # self-attention`
+        break
+      }
+      case 'LSTM': {
+        const input_size = inShape?.[2] ?? '???'
+        const { hidden_size = 256, num_layers = 1, bidirectional = false, return_sequences = true } = cfg
+        initLine = `        self.${name} = nn.LSTM(input_size=${input_size}, hidden_size=${hidden_size}, num_layers=${num_layers}, batch_first=True, bidirectional=${bidirectional ? 'True' : 'False'})`
+        const src = varNameMap[sourceId] || 'x'
+        if (return_sequences) {
+          forwardLine = `        ${outVar}, _ = self.${name}(${src})  # (B, seq_len, hidden${bidirectional ? '*2' : ''})`
+        } else {
+          forwardLine = `        ${outVar}_seq, _ = self.${name}(${src})\n        ${outVar} = ${outVar}_seq[:, -1, :]  # last timestep only`
+        }
+        break
+      }
+      case 'Embedding': {
+        const { num_embeddings = 10000, embedding_dim = 256 } = cfg
+        initLine = `        self.${name} = nn.Embedding(num_embeddings=${num_embeddings}, embedding_dim=${embedding_dim})`
+        forwardLine = `        ${outVar} = self.${name}(${varNameMap[sourceId] || 'x'})  # (B, seq_len, embed_dim)`
+        break
+      }
+      case 'LayerNorm': {
+        const normalized_shape = inShape ? inShape.slice(1) : ['???']
+        initLine = `        self.${name} = nn.LayerNorm(normalized_shape=[${normalized_shape.join(', ')}])`
+        forwardLine = `        ${outVar} = self.${name}(${varNameMap[sourceId] || 'x'})`
         break
       }
     }
