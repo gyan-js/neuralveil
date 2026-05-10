@@ -210,6 +210,109 @@ export function inferPermute(inputShape, { permutation }) {
 
 
 /**
+ * inferMultiHeadAttention — (B, seq_len, embed_dim) → (B, seq_len, embed_dim)
+ * embed_dim must be divisible by num_heads.
+ */
+export function inferMultiHeadAttention(inputShape, { embed_dim, num_heads }) {
+  if (!inputShape) return { error: 'MISSING_INPUT', shape: null }
+
+  if (inputShape.length !== 3) {
+    return {
+      error: 'INVALID_INPUT',
+      shape: null,
+      message: `MultiHeadAttention expects a 3D tensor [B, seq_len, embed_dim]. Got ${formatShape(inputShape)}.`,
+    }
+  }
+
+  if (!embed_dim || embed_dim < 1) {
+    return { error: 'INVALID_EMBED_DIM', shape: null, message: 'MultiHeadAttention: embed_dim must be ≥ 1.' }
+  }
+
+  if (!num_heads || num_heads < 1) {
+    return { error: 'INVALID_NUM_HEADS', shape: null, message: 'MultiHeadAttention: num_heads must be ≥ 1.' }
+  }
+
+  if (embed_dim % num_heads !== 0) {
+    return {
+      error: 'HEAD_DIM_MISMATCH',
+      shape: null,
+      message: `MultiHeadAttention: embed_dim (${embed_dim}) must be divisible by num_heads (${num_heads}). ` +
+        `head_dim = ${embed_dim} / ${num_heads} = ${(embed_dim / num_heads).toFixed(2)} is not an integer. ` +
+        `Try num_heads: ${[1,2,4,8,16].filter(h => embed_dim % h === 0).slice(-3).join(', ')}.`,
+    }
+  }
+
+  const [batch, seq_len] = inputShape
+  return { shape: [batch, seq_len, embed_dim], error: null }
+}
+
+
+/**
+ * inferLSTM — (B, seq_len, input_size) → (B, seq_len, hidden_size) if return_sequences
+ *             else (B, hidden_size). Bidirectional doubles hidden_size.
+ */
+export function inferLSTM(inputShape, { hidden_size, bidirectional = false, return_sequences = true }) {
+  if (!inputShape) return { error: 'MISSING_INPUT', shape: null }
+
+  if (inputShape.length !== 3) {
+    return {
+      error: 'INVALID_INPUT',
+      shape: null,
+      message: `LSTM expects a 3D tensor [B, seq_len, input_size]. Got ${formatShape(inputShape)}.`,
+    }
+  }
+
+  if (!hidden_size || hidden_size < 1) {
+    return { error: 'INVALID_HIDDEN', shape: null, message: 'LSTM: hidden_size must be ≥ 1.' }
+  }
+
+  const [batch, seq_len] = inputShape
+  const outHidden = bidirectional ? hidden_size * 2 : hidden_size
+
+  const outShape = return_sequences
+    ? [batch, seq_len, outHidden]
+    : [batch, outHidden]
+
+  return { shape: outShape, error: null }
+}
+
+
+/**
+  inferEmbedding — input is token IDs: (B, seq_len) → (B, seq_len, embedding_dim)
+  Input has no channel/spatial dims; output appends embedding_dim.
+ */
+export function inferEmbedding(inputShape, { embedding_dim }) {
+  if (!inputShape) return { error: 'MISSING_INPUT', shape: null }
+
+  if (inputShape.length !== 2) {
+    return {
+      error: 'INVALID_INPUT',
+      shape: null,
+      message: `Embedding expects a 2D token-ID tensor [B, seq_len]. Got ${formatShape(inputShape)}. ` +
+        `Connect an Input node with shape [B, seq_len] (no spatial dims).`,
+    }
+  }
+
+  if (!embedding_dim || embedding_dim < 1) {
+    return { error: 'INVALID_EMBED_DIM', shape: null, message: 'Embedding: embedding_dim must be ≥ 1.' }
+  }
+
+  const [batch, seq_len] = inputShape
+  return { shape: [batch, seq_len, embedding_dim], error: null }
+}
+
+
+/**
+ * inferLayerNorm — pure shape passthrough.
+ * normalized_shape controls which dims are normalized but doesn't change output size.
+ */
+export function inferLayerNorm(inputShape) {
+  if (!inputShape) return { error: 'MISSING_INPUT', shape: null }
+  return { shape: [...inputShape], error: null }
+}
+
+
+/**
  * inferMerge — handles ADD and CONCAT modes for skip/residual connections
  */
 export function inferMerge(shapes, mode = 'add') {
@@ -296,8 +399,12 @@ export function inferLayer(layerType, inputShape, config) {
     case 'Flatten':  return inferFlatten(inputShape)
     case 'BatchNorm': return inferBatchNorm(inputShape)
     case 'Dropout':  return inferDropout(inputShape)
-    case 'Reshape':  return inferReshape(inputShape, config)
-    case 'Permute':  return inferPermute(inputShape, config)
+    case 'Reshape':           return inferReshape(inputShape, config)
+    case 'Permute':           return inferPermute(inputShape, config)
+    case 'MultiHeadAttention': return inferMultiHeadAttention(inputShape, config)
+    case 'LSTM':              return inferLSTM(inputShape, config)
+    case 'Embedding':         return inferEmbedding(inputShape, config)
+    case 'LayerNorm':         return inferLayerNorm(inputShape)
     // Merge is handled separately in propagateGraph (needs multiple inputs)
     default: return { shape: inputShape, error: null }
   }
@@ -443,6 +550,10 @@ export function generateErrorMessage(layerType, inputShape, config, errorType) {
     PERMUTATION_LENGTH:    `Permute: permutation length must match tensor rank.`,
     INVALID_PERMUTATION:   `Permute: permutation must be a valid reordering of dimension indices.`,
     MISSING_PERMUTATION:   `Permute: no permutation specified.`,
+    INVALID_EMBED_DIM:     `embed_dim must be a positive integer.`,
+    INVALID_NUM_HEADS:     `num_heads must be a positive integer.`,
+    INVALID_HIDDEN:        `hidden_size must be a positive integer.`,
+    HEAD_DIM_MISMATCH:     `MultiHeadAttention: embed_dim must be divisible by num_heads.`,
     INVALID_TARGET:        `Reshape: no target shape specified.`,
   }
 
@@ -450,10 +561,7 @@ export function generateErrorMessage(layerType, inputShape, config, errorType) {
 }
 
 
-/**
- * Format shape array as string.
- * null dims display as 'N' (dynamic batch) or '?' (dynamic spatial).
- */
+
 export function formatShape(shape, format = 'NCHW') {
   if (!shape) return '???'
 
@@ -491,6 +599,36 @@ export function countParams(layerType, inputShape, config) {
       const channels = inputShape[1]
       if (channels === null) return 0
       return channels * 4 // basically 4 channelss were added here ->>>> gamma, beta, running_mean, running_var !
+    }
+    case 'MultiHeadAttention': {
+      // 4 weight matrices (Q,K,V,O) each embed_dim × embed_dim + biases
+      const { embed_dim = 512 } = config
+      return 4 * embed_dim * embed_dim + 4 * embed_dim
+    }
+    case 'LSTM': {
+      
+      const input_size = inputShape[2]
+      if (input_size === null || input_size === undefined) return 0
+      const { hidden_size = 256, bidirectional = false, num_layers = 1 } = config
+      // Per direction per layer MATH -> 4 * ((input_size + hidden_size) * hidden_size + hidden_size)
+      // the subsequent layers use hidden_size as input_size
+      let total = 0
+      for (let l = 0; l < (num_layers || 1); l++) {
+        const in_size = l === 0 ? input_size : (bidirectional ? hidden_size * 2 : hidden_size)
+        const layer_params = 4 * ((in_size + hidden_size) * hidden_size + hidden_size)
+        total += bidirectional ? layer_params * 2 : layer_params
+      }
+      return total
+    }
+    case 'Embedding': {
+      const { num_embeddings = 10000, embedding_dim = 256 } = config
+      return num_embeddings * embedding_dim
+    }
+    case 'LayerNorm': {
+      // gamma + beta for the normalized dimensions = 2 x last dimension
+      const lastDim = inputShape[inputShape.length - 1]
+      if (lastDim === null) return 0
+      return lastDim * 2
     }
     default:
       return 0
