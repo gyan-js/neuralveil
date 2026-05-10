@@ -144,6 +144,45 @@ export default function LayerNode({ id, data }) {
           </div>
         )
       }
+      case 'MultiHeadAttention': {
+        const { embed_dim = 512, num_heads = 8, dropout = 0.1 } = config
+        const headDim = embed_dim % num_heads === 0 ? embed_dim / num_heads : null
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="embed_dim" value={embed_dim} />
+            <ParamChip label="heads"     value={num_heads} />
+            <ParamChip label="head_dim"  value={headDim !== null ? headDim : '⚠'} />
+            <ParamChip label="dropout"   value={dropout} />
+          </div>
+        )
+      }
+      case 'LSTM': {
+        const { hidden_size = 256, num_layers = 1, bidirectional = false, return_sequences = true } = config
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="hidden"   value={hidden_size} />
+            <ParamChip label="layers"   value={num_layers} />
+            <ParamChip label="bidir"    value={bidirectional ? 'YES' : 'NO'} />
+            <ParamChip label="ret_seq"  value={return_sequences ? 'YES' : 'NO'} />
+          </div>
+        )
+      }
+      case 'Embedding': {
+        const { num_embeddings = 10000, embedding_dim = 256 } = config
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="vocab"    value={num_embeddings.toLocaleString()} />
+            <ParamChip label="dim"      value={embedding_dim} />
+          </div>
+        )
+      }
+      case 'LayerNorm': {
+        return (
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>
+            shape passthrough
+          </div>
+        )
+      }
       default:
         return null
     }
