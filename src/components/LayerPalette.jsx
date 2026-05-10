@@ -1,4 +1,4 @@
-import { Grid2X2, Minimize2, Layers, Minus, SlidersHorizontal, Dices, GitMerge, Shuffle, ArrowLeftRight } from 'lucide-react'
+import { Grid2X2, Minimize2, Layers, Minus, SlidersHorizontal, Dices, GitMerge, Shuffle, ArrowLeftRight, Brain, Activity, BookOpen, AlignCenter } from 'lucide-react'
 import { LAYER_COLORS, LAYER_TYPE_BADGE, LAYER_TOOLTIPS } from '../constants/layerDefaults.js'
 import { useState } from 'react'
 
@@ -12,10 +12,14 @@ const LAYERS_CONFIG = [
   { type: 'Merge',     icon: GitMerge,          desc: 'Merge two branches via ADD or CONCAT'        },
   { type: 'Reshape',   icon: Shuffle,           desc: 'Reshape tensor to a new [C, H, W] layout'   },
   { type: 'Permute',   icon: ArrowLeftRight,    desc: 'Reorder tensor dimensions (transpose/permute)' },
+  { type: 'MultiHeadAttention', icon: Brain,    desc: 'Self-attention for Transformers, BERT, ViT'    },
+  { type: 'LSTM',      icon: Activity,          desc: 'Sequence model with gated memory cells'         },
+  { type: 'Embedding', icon: BookOpen,          desc: 'Map integer token IDs to dense vectors'         },
+  { type: 'LayerNorm', icon: AlignCenter,       desc: 'Normalize across last dims — shape passthrough' },
 ]
 
 // Types that get a subtle separator above them in the palette
-const SEPARATOR_BEFORE = new Set(['Merge', 'Reshape'])
+const SEPARATOR_BEFORE = new Set(['Merge', 'Reshape', 'MultiHeadAttention'])
 
 function LayerChip({ type, icon: Icon, desc }) {
   const [hovering, setHovering] = useState(false)
@@ -26,6 +30,10 @@ function LayerChip({ type, icon: Icon, desc }) {
   const isMerge   = type === 'Merge'
   const isReshape = type === 'Reshape'
   const isPermute = type === 'Permute'
+  const isMHA     = type === 'MultiHeadAttention'
+  const isLSTM    = type === 'LSTM'
+  const isEmbedding = type === 'Embedding'
+  const isLayerNorm = type === 'LayerNorm'
   const isShapeMath = isReshape || isPermute
 
   const onDragStart = (e) => {
@@ -59,6 +67,10 @@ function LayerChip({ type, icon: Icon, desc }) {
           }),
           ...(isReshape && {
             borderTop: '1px solid rgba(129,140,248,0.12)',
+            marginTop: 4,
+          }),
+          ...(isMHA && {
+            borderTop: '1px solid rgba(168,85,247,0.15)',
             marginTop: 4,
           }),
         }}
@@ -142,6 +154,46 @@ function LayerChip({ type, icon: Icon, desc }) {
               color: 'rgba(52,211,153,0.7)', lineHeight: 1.5,
             }}>
               Edit dim order in inspector.<br />e.g. [0,2,3,1] → NHWC
+            </div>
+          )}
+          {isMHA && (
+            <div style={{
+              marginTop: 6, paddingTop: 5,
+              borderTop: '1px solid rgba(168,85,247,0.15)',
+              fontFamily: 'JetBrains Mono', fontSize: 8,
+              color: 'rgba(168,85,247,0.7)', lineHeight: 1.5,
+            }}>
+              Input: [B, seq_len, embed_dim]<br />embed_dim must be divisible by num_heads.
+            </div>
+          )}
+          {isLSTM && (
+            <div style={{
+              marginTop: 6, paddingTop: 5,
+              borderTop: '1px solid rgba(244,114,182,0.15)',
+              fontFamily: 'JetBrains Mono', fontSize: 8,
+              color: 'rgba(244,114,182,0.7)', lineHeight: 1.5,
+            }}>
+              Input: [B, seq_len, input_size]<br />Toggle bidirectional in inspector.
+            </div>
+          )}
+          {isEmbedding && (
+            <div style={{
+              marginTop: 6, paddingTop: 5,
+              borderTop: '1px solid rgba(251,146,60,0.15)',
+              fontFamily: 'JetBrains Mono', fontSize: 8,
+              color: 'rgba(251,146,60,0.7)', lineHeight: 1.5,
+            }}>
+              Input: [B, seq_len] — integer token IDs.<br />Output: [B, seq_len, embed_dim]
+            </div>
+          )}
+          {isLayerNorm && (
+            <div style={{
+              marginTop: 6, paddingTop: 5,
+              borderTop: '1px solid rgba(148,163,184,0.15)',
+              fontFamily: 'JetBrains Mono', fontSize: 8,
+              color: 'rgba(148,163,184,0.7)', lineHeight: 1.5,
+            }}>
+              Shape passthrough. Required in every<br />Transformer / attention block.
             </div>
           )}
         </div>
