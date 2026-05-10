@@ -16,7 +16,7 @@ const PRESETS = [
     desc: 'Conv → BN → Dropout → Conv → BN + skip ADD',
     color: '#00E5FF',
     data: {
-      version: '1.0', format: 'NCHW', inputShape: [1, 3, 224, 224],
+      version: '1.0', format: 'NCHW', inputShape: [1, 64, 224, 224],
       nodes: [
         { id: 'input',  type: 'Input',     position: { x: 300, y: 30  }, config: {} },
         { id: 'conv1',  type: 'Conv2D',    position: { x: 300, y: 155 }, config: { filters: 64,  kernelSize: 3, stride: 1, padding: 1, dilation: 1 } },
