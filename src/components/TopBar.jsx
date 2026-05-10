@@ -103,7 +103,7 @@ const PRESETS = [
     desc: 'Embedding → Bidirectional LSTM → Dropout → FC → FC',
     color: '#F472B6',
     data: {
-      version: '1.0', format: 'NCHW', inputShape: [1, 3, 224, 224],
+      version: '1.0', format: 'TOKENS', inputShape: [1, 128],
       nodes: [
         { id: 'input',  type: 'Input',     position: { x: 300, y: 30  }, config: {} },
         { id: 'emb1',   type: 'Embedding', position: { x: 300, y: 155 }, config: { num_embeddings: 10000, embedding_dim: 256 } },
