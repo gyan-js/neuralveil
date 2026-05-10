@@ -1,6 +1,40 @@
 import { propagateGraph, formatShape } from './shapeEngine.js'
 
 
+
+
+function topoSortIds(nodes, edges) {
+  const adj = {}
+  const inDegree = {}
+
+  for (const n of nodes) {
+    adj[n.id] = []
+    inDegree[n.id] = 0
+  }
+
+  for (const e of edges) {
+    if (adj[e.source]) adj[e.source].push(e.target)
+    if (inDegree[e.target] !== undefined) inDegree[e.target]++
+  }
+
+  const queue = nodes.filter(n => inDegree[n.id] === 0).map(n => n.id)
+  const sorted = []
+
+  while (queue.length > 0) {
+    const curr = queue.shift()
+    sorted.push(curr)
+    for (const nb of (adj[curr] || [])) {
+      inDegree[nb]--
+      if (inDegree[nb] === 0) queue.push(nb)
+    }
+  }
+
+  return sorted
+}
+
+
+// ─── PYTORCH EXPORT ───────────────────────────────────────────────────────────
+
 export function exportToPyTorch(nodes, edges, inputShape) {
   const sorted = topoSortIds(nodes, edges)
   const results = propagateGraph(nodes, edges, inputShape)
@@ -16,19 +50,19 @@ export function exportToPyTorch(nodes, edges, inputShape) {
     layerCounters[key] = (layerCounters[key] || 0) + 1
     const suffix = layerCounters[key]
     const names = {
-      conv2d:    `conv${suffix}`,
-      maxpool2d: `pool${suffix}`,
-      dense:     `fc${suffix}`,
-      flatten:   `flatten`,
-      batchnorm: `bn${suffix}`,
-      dropout:   `dropout${suffix === 1 ? '' : suffix}`,
-      merge:     `merge${suffix}`,
-      reshape:   `reshape${suffix}`,
-      permute:   `permute${suffix}`,
+      conv2d:             `conv${suffix}`,
+      maxpool2d:          `pool${suffix}`,
+      dense:              `fc${suffix}`,
+      flatten:            `flatten`,
+      batchnorm:          `bn${suffix}`,
+      dropout:            `dropout${suffix === 1 ? '' : suffix}`,
+      merge:              `merge${suffix}`,
+      reshape:            `reshape${suffix}`,
+      permute:            `permute${suffix}`,
       multiheadattention: `attn${suffix}`,
-      lstm:      `lstm${suffix}`,
-      embedding: `embed${suffix}`,
-      layernorm: `ln${suffix}`,
+      lstm:               `lstm${suffix}`,
+      embedding:          `embed${suffix}`,
+      layernorm:          `ln${suffix}`,
     }
     return names[key] || `layer${suffix}`
   }
@@ -111,16 +145,13 @@ export function exportToPyTorch(nodes, edges, inputShape) {
         break
       }
       case 'Reshape': {
-        // PyTorch: x.view(x.size(0), C, H, W)
         const { targetC, targetH, targetW } = cfg
         const dims = [targetC, targetH, targetW].filter(d => d !== undefined && d !== null)
         const dimsStr = dims.join(', ')
-        // No nn.Module needed — just .view() in forward
         forwardLine = `        ${outVar} = ${varNameMap[sourceId] || 'x'}.view(${varNameMap[sourceId] || 'x'}.size(0), ${dimsStr})  # reshape`
         break
       }
       case 'Permute': {
-        // PyTorch: x.permute(0, 2, 3, 1)
         const { permutation = [0, 1, 2, 3] } = cfg
         const permStr = permutation.join(', ')
         forwardLine = `        ${outVar} = ${varNameMap[sourceId] || 'x'}.permute(${permStr}).contiguous()  # permute`
@@ -164,7 +195,6 @@ export function exportToPyTorch(nodes, edges, inputShape) {
   }
 
   const [b, c, h, w] = inputShape
- 
   const batchCode = (b === null || b === undefined) ? 2 : b === 1 ? 1 : b
 
   const code = `import torch
@@ -192,6 +222,180 @@ if __name__ == '__main__':
 }
 
 
+
+
+export function exportToKeras(nodes, edges, inputShape) {
+  const sorted = topoSortIds(nodes, edges)
+  const results = propagateGraph(nodes, edges, inputShape)
+
+  const inputNode = nodes.find(n => n.data?.layerType === 'Input')
+  const nonInputNodes = sorted
+    .map(id => nodes.find(n => n.id === id))
+    .filter(n => n && n.data?.layerType !== 'Input')
+
+  // Track whether the graph has branches (Merge nodes) — if so, use functional API
+  const hasMerge = nonInputNodes.some(n => n.data?.layerType === 'Merge')
+
+  const layerCounters = {}
+  const getVarName = (type) => {
+    const key = type.toLowerCase().replace(/2d/g, '2d')
+    layerCounters[key] = (layerCounters[key] || 0) + 1
+    const s = layerCounters[key]
+    const map = {
+      conv2d:             `x${s}`,
+      maxpool2d:          `p${s}`,
+      dense:              `d${s}`,
+      flatten:            `flat`,
+      batchnorm:          `bn${s}`,
+      dropout:            `drop${s}`,
+      merge:              `merged${s}`,
+      reshape:            `rs${s}`,
+      permute:            `perm${s}`,
+      multiheadattention: `attn${s}`,
+      lstm:               `lstm${s}`,
+      embedding:          `emb${s}`,
+      layernorm:          `ln${s}`,
+    }
+    return map[key] || `layer${s}`
+  }
+
+ 
+  const inputNodeId = inputNode?.id
+  if (inputNodeId) tensorVarOf[inputNodeId] = 'inputs'
+
+  const lines = []  
+
+  for (const node of nonInputNodes) {
+    const type = node.data?.layerType
+    const cfg = node.data?.config || {}
+    const varName = getVarName(type)
+
+    const inEdges = edges.filter(e => e.target === node.id)
+    const sourceId = inEdges[0]?.source
+    const inResult = sourceId ? results[sourceId] : null
+    const inShape = inResult?.outputShape || null
+    const srcVar = tensorVarOf[sourceId] || 'inputs'
+
+    tensorVarOf[node.id] = varName
+
+    switch (type) {
+      case 'Conv2D': {
+        const { filters = 64, kernelSize = 3, stride = 1, padding = 1 } = cfg
+        const pad = padding > 0 ? 'same' : 'valid'
+        lines.push(`${varName} = layers.Conv2D(${filters}, kernel_size=${kernelSize}, strides=${stride}, padding='${pad}', activation='relu')(${srcVar})`)
+        break
+      }
+      case 'MaxPool2D': {
+        const { kernelSize = 2, stride = 2 } = cfg
+        lines.push(`${varName} = layers.MaxPooling2D(pool_size=${kernelSize}, strides=${stride})(${srcVar})`)
+        break
+      }
+      case 'Dense': {
+        const { units = 256 } = cfg
+        const isLast = nonInputNodes.indexOf(node) === nonInputNodes.length - 1
+        const act = isLast ? '' : ", activation='relu'"
+        lines.push(`${varName} = layers.Dense(${units}${act})(${srcVar})`)
+        break
+      }
+      case 'Flatten': {
+        lines.push(`${varName} = layers.Flatten()(${srcVar})`)
+        break
+      }
+      case 'BatchNorm': {
+        lines.push(`${varName} = layers.BatchNormalization()(${srcVar})`)
+        break
+      }
+      case 'Dropout': {
+        const { p = 0.5 } = cfg
+        lines.push(`${varName} = layers.Dropout(${p})(${srcVar})`)
+        break
+      }
+      case 'Merge': {
+        const mode = cfg.mode || 'add'
+        const parentVars = inEdges.map(e => tensorVarOf[e.source]).filter(Boolean)
+        if (mode === 'add') {
+          lines.push(`${varName} = layers.Add()([${parentVars.join(', ')}])  # residual ADD`)
+        } else {
+          lines.push(`${varName} = layers.Concatenate(axis=-1)([${parentVars.join(', ')}])  # CONCAT`)
+        }
+        break
+      }
+      case 'Reshape': {
+        const { targetC, targetH, targetW } = cfg
+        const dims = [targetC, targetH, targetW].filter(d => d !== undefined && d !== null)
+        lines.push(`${varName} = layers.Reshape((${dims.join(', ')},))(${srcVar})`)
+        break
+      }
+      case 'Permute': {
+        // Keras Permute is 1-indexed and excludes batch
+        const { permutation = [0, 1, 2, 3] } = cfg
+        const kerasPerm = permutation.slice(1).map(d => d)  // drop batch dim
+        lines.push(`${varName} = layers.Permute((${kerasPerm.join(', ')},))(${srcVar})  # excludes batch`)
+        break
+      }
+      case 'MultiHeadAttention': {
+        const { embed_dim = 512, num_heads = 8, dropout = 0.1 } = cfg
+        lines.push(`${varName} = layers.MultiHeadAttention(num_heads=${num_heads}, key_dim=${Math.floor(embed_dim / num_heads)}, dropout=${dropout})(${srcVar}, ${srcVar})`)
+        break
+      }
+      case 'LSTM': {
+        const { hidden_size = 256, num_layers = 1, bidirectional = false, return_sequences = true } = cfg
+        const lstmLayer = `layers.LSTM(${hidden_size}, return_sequences=${return_sequences ? 'True' : 'False'})`
+        if (bidirectional) {
+          lines.push(`${varName} = layers.Bidirectional(${lstmLayer})(${srcVar})`)
+        } else {
+          lines.push(`${varName} = ${lstmLayer}(${srcVar})`)
+        }
+        if (num_layers > 1) {
+          lines.push(`# Note: add ${num_layers - 1} more LSTM layer(s) for num_layers=${num_layers}`)
+        }
+        break
+      }
+      case 'Embedding': {
+        const { num_embeddings = 10000, embedding_dim = 256 } = cfg
+        lines.push(`${varName} = layers.Embedding(input_dim=${num_embeddings}, output_dim=${embedding_dim})(${srcVar})`)
+        break
+      }
+      case 'LayerNorm': {
+        lines.push(`${varName} = layers.LayerNormalization()(${srcVar})`)
+        break
+      }
+      default:
+        lines.push(`# ${type} — not yet mapped to Keras`)
+    }
+  }
+
+  const [b, c, h, w] = inputShape
+ 
+  const inputSpecItems = [b === null ? 'None' : b, h ?? '???', w ?? '???', c ?? '???']
+  const batchSize = b === null ? 'None' : b
+
+  const lastVar = tensorVarOf[nonInputNodes[nonInputNodes.length - 1]?.id] || 'inputs'
+
+  const code = `import tensorflow as tf
+from tensorflow.keras import layers, Model
+
+
+# Build model using the Keras Functional API
+inputs = tf.keras.Input(shape=(${h ?? '???'}, ${w ?? '???'}, ${c ?? '???'}))  # HWC (channels-last)
+
+${lines.join('\n')}
+
+model = Model(inputs=inputs, outputs=${lastVar})
+model.summary()
+
+if __name__ == '__main__':
+    import numpy as np
+    x = np.random.randn(${batchSize ?? 1}, ${h ?? '???'}, ${w ?? '???'}, ${c ?? '???'}).astype('float32')
+    out = model.predict(x)
+    print(f"Output shape: {out.shape}")
+`
+  return code
+}
+
+
+
+
 export function exportToJSON(nodes, edges, inputShape, format) {
   const exportNodes = nodes.map(n => ({
     id: n.id,
@@ -207,34 +411,4 @@ export function exportToJSON(nodes, edges, inputShape, format) {
     nodes: exportNodes,
     edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target })),
   }, null, 2)
-}
-
-
-function topoSortIds(nodes, edges) {
-  const adj = {}
-  const inDegree = {}
-
-  for (const n of nodes) {
-    adj[n.id] = []
-    inDegree[n.id] = 0
-  }
-
-  for (const e of edges) {
-    if (adj[e.source]) adj[e.source].push(e.target)
-    if (inDegree[e.target] !== undefined) inDegree[e.target]++
-  }
-
-  const queue = nodes.filter(n => inDegree[n.id] === 0).map(n => n.id)
-  const sorted = []
-
-  while (queue.length > 0) {
-    const curr = queue.shift()
-    sorted.push(curr)
-    for (const nb of (adj[curr] || [])) {
-      inDegree[nb]--
-      if (inDegree[nb] === 0) queue.push(nb)
-    }
-  }
-
-  return sorted
 }
