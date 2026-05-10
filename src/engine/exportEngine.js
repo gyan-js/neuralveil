@@ -259,7 +259,7 @@ export function exportToKeras(nodes, edges, inputShape) {
     return map[key] || `layer${s}`
   }
 
- 
+  const tensorVarOf = {}
   const inputNodeId = inputNode?.id
   if (inputNodeId) tensorVarOf[inputNodeId] = 'inputs'
 
