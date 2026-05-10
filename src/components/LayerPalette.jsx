@@ -12,7 +12,7 @@ const LAYERS_CONFIG = [
   { type: 'Merge',     icon: GitMerge,          desc: 'Merge two branches via ADD or CONCAT'        },
   { type: 'Reshape',   icon: Shuffle,           desc: 'Reshape tensor to a new [C, H, W] layout'   },
   { type: 'Permute',   icon: ArrowLeftRight,    desc: 'Reorder tensor dimensions (transpose/permute)' },
-  { type: 'MHA', icon: Brain,    desc: 'Self-attention for Transformers, BERT, ViT'    },
+  { type: 'MultiHeadAttention', icon: Brain,    desc: 'Self-attention for Transformers, BERT, ViT'    },
   { type: 'LSTM',      icon: Activity,          desc: 'Sequence model with gated memory cells'         },
   { type: 'Embedding', icon: BookOpen,          desc: 'Map integer token IDs to dense vectors'         },
   { type: 'LayerNorm', icon: AlignCenter,       desc: 'Normalize across last dims — shape passthrough' },
@@ -30,7 +30,7 @@ function LayerChip({ type, icon: Icon, desc }) {
   const isMerge   = type === 'Merge'
   const isReshape = type === 'Reshape'
   const isPermute = type === 'Permute'
-  const isMHA     = type === 'MHA'
+  const isMHA     = type === 'MultiHeadAttention'
   const isLSTM    = type === 'LSTM'
   const isEmbedding = type === 'Embedding'
   const isLayerNorm = type === 'LayerNorm'
@@ -42,7 +42,7 @@ function LayerChip({ type, icon: Icon, desc }) {
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ width: '190px', position: 'relative' }}>
       <div
         draggable
         onDragStart={onDragStart}
