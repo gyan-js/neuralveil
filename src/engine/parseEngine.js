@@ -1,35 +1,52 @@
-function stripCommentsAndDocstrings(code) {
-    // Remove triple-quoted docstrings first
-    let cleaned = code.replace(/"""[\s\S]*?"""/g, '').replace(/'''[\s\S]*?'''/g, '')
-    // Remove inline # comments
-    cleaned = cleaned.replace(/#[^\n]*/g, '')
-    return cleaned
+/**
+ * parseEngine.js — Production-Grade ML Model Analysis Engine v2.0
+ *
+ * Architecture: Hybrid Static Analysis
+ *   1. Tokenise + strip noise (comments, docstrings, type hints)
+ *   2. Extract class/module structure (nested nn.Module support)
+ *   3. Build a symbol table: self.attr → layer definition
+ *   4. Trace the forward() method line-by-line, tracking variable→shape
+ *   5. Resolve branches (skip connections, torch.cat, residual adds)
+ *   6. Emit a computation graph: nodes + edges + per-node shape annotations
+ *   7. Attach actionable diagnostics (shape errors, missing flatten, etc.)
+ *
+ * Supports:
+ *   PyTorch  — nn.Module, nn.Sequential, all common layer types
+ *   Keras/TF — Sequential API, Functional API, model.add()
+ *
+ * New layer types added: AvgPool2D, AdaptiveAvgPool, GlobalAvgPool,
+ *   ConvTranspose2D, GRU, ZeroPad2D, Upsample, Softmax (as node)
+ */
+
+// ─── UTILITIES ───────────────────────────────────────────────────────────────
+
+function stripNoise(code) {
+    // Remove triple-quoted docstrings
+    let c = code.replace(/"""[\s\S]*?"""/g, '').replace(/'''[\s\S]*?'''/g, '')
+    // Remove type annotations  e.g.  def forward(self, x: torch.Tensor) -> torch.Tensor:
+    c = c.replace(/:\s*[\w\[\],\s.]+(?=\s*[,)=])/g, '')
+    // Remove inline # comments but preserve newlines
+    c = c.replace(/#[^\n]*/g, '')
+    return c
   }
   
   function extractArgString(callStr) {
     const open = callStr.indexOf('(')
     if (open === -1) return ''
-    let depth = 0
-    let close = -1
+    let depth = 0, close = -1
     for (let i = open; i < callStr.length; i++) {
       if (callStr[i] === '(') depth++
-      else if (callStr[i] === ')') {
-        depth--
-        if (depth === 0) { close = i; break }
-      }
+      else if (callStr[i] === ')') { depth--; if (depth === 0) { close = i; break } }
     }
-    if (close === -1) return callStr.slice(open + 1)
-    return callStr.slice(open + 1, close)
+    return close === -1 ? callStr.slice(open + 1) : callStr.slice(open + 1, close)
   }
   
- 
   function splitArgs(argStr) {
     const args = []
-    let depth = 0
-    let current = ''
+    let depth = 0, current = ''
     for (const ch of argStr) {
-      if (ch === '(' || ch === '[' || ch === '{') { depth++; current += ch }
-      else if (ch === ')' || ch === ']' || ch === '}') { depth--; current += ch }
+      if ('([{'.includes(ch)) { depth++; current += ch }
+      else if (')]}'.includes(ch)) { depth--; current += ch }
       else if (ch === ',' && depth === 0) { args.push(current.trim()); current = '' }
       else { current += ch }
     }
@@ -37,17 +54,13 @@ function stripCommentsAndDocstrings(code) {
     return args
   }
   
-
   export function extractLayerArgs(argStr) {
     const tokens = splitArgs(argStr)
-    const positional = []
-    const kwargs = {}
+    const positional = [], kwargs = {}
     for (const t of tokens) {
-      const eqIdx = t.indexOf('=')
-      if (eqIdx !== -1) {
-        const key = t.slice(0, eqIdx).trim()
-        const val = t.slice(eqIdx + 1).trim()
-        kwargs[key] = val
+      const eq = t.indexOf('=')
+      if (eq !== -1) {
+        kwargs[t.slice(0, eq).trim()] = t.slice(eq + 1).trim()
       } else {
         positional.push(t)
       }
@@ -55,557 +68,888 @@ function stripCommentsAndDocstrings(code) {
     return { positional, kwargs }
   }
   
- 
-  function resolveNum(token, warnings, layerName) {
-    if (token === undefined || token === null) return null
+  function resolveNum(token, fallback = null, warnings = [], ctx = '') {
+    if (token === undefined || token === null) return fallback
     const s = String(token).trim()
+    // Handle tuple/list as first element e.g. kernel_size=(3,3) → 3
+    const tupleMatch = s.match(/^\(?\s*(\d+)\s*(?:,\s*\d+)?\s*\)?$/)
+    if (tupleMatch) return Number(tupleMatch[1])
     const n = Number(s)
     if (!isNaN(n) && s !== '') return n
-    
-    warnings.push(`${layerName}: could not resolve arg "${s}" — using placeholder value.`)
-    return null
-  }
-  
-
-  function resolveBool(token, fallback = false) {
-    if (token === undefined) return fallback
-    const s = String(token).trim()
-    if (s === 'True' || s === 'true') return true
-    if (s === 'False' || s === 'false') return false
+    if (warnings && ctx) warnings.push(`${ctx}: could not resolve "${s}" — used default.`)
     return fallback
   }
   
-  export function detectFramework(codeString) {
-    const code = codeString.toLowerCase()
-    const hasTorch = code.includes('import torch') || code.includes('nn.module') || code.includes('nn.sequential') || code.includes('nn.conv2d') || code.includes('nn.linear')
-    const hasTF = code.includes('import tensorflow') || code.includes('from tensorflow') || code.includes('keras') || code.includes('tf.keras') || code.includes('layers.conv2d')
-    if (hasTorch && !hasTF) return 'pytorch'
-    if (hasTF && !hasTorch) return 'tensorflow'
-    if (hasTorch && hasTF) return 'pytorch' // prefer torch if both
+  function resolveBool(token, fallback = false) {
+    if (token === undefined) return fallback
+    const s = String(token).trim()
+    return s === 'True' || s === 'true' ? true : s === 'False' || s === 'false' ? false : fallback
+  }
+  
+  let _uid = 2000
+  function uid() { return `p-${++_uid}` }
+  
+  // ─── FRAMEWORK DETECTION ─────────────────────────────────────────────────────
+  
+  export function detectFramework(code) {
+    const c = code.toLowerCase()
+    const torch = c.includes('import torch') || c.includes('nn.module') ||
+      c.includes('nn.sequential') || c.includes('nn.conv2d') || c.includes('nn.linear') ||
+      c.includes('torch.nn') || c.includes('f.relu') || c.includes('torch.cat')
+    const tf = c.includes('import tensorflow') || c.includes('from tensorflow') ||
+      c.includes('keras') || c.includes('tf.keras') || c.includes('layers.conv2d') ||
+      c.includes('model.add') || c.includes('layers.dense')
+    if (torch && !tf) return 'pytorch'
+    if (tf && !torch) return 'tensorflow'
+    if (torch && tf) return 'pytorch'
     return 'unknown'
   }
   
-  function parsePyTorchLayerCall(callStr, warnings) {
-    const s = callStr.trim()
+  // ─── PYTORCH LAYER PARSER ────────────────────────────────────────────────────
   
-
-    const conv2dMatch = s.match(/nn\.Conv2d\s*\(/)
-    if (conv2dMatch) {
-      const args = extractLayerArgs(extractArgString(s))
-      const { positional: pos, kwargs } = args
-      const inC  = resolveNum(kwargs.in_channels  ?? pos[0], warnings, 'Conv2D') ?? 3
-      const outC = resolveNum(kwargs.out_channels  ?? pos[1], warnings, 'Conv2D') ?? 64
-      const ks   = resolveNum(kwargs.kernel_size   ?? pos[2], warnings, 'Conv2D') ?? 3
-      const st   = resolveNum(kwargs.stride        ?? pos[3], warnings, 'Conv2D') ?? 1
-      const pad  = resolveNum(kwargs.padding       ?? pos[4], warnings, 'Conv2D') ?? 0
-      const dil  = resolveNum(kwargs.dilation      ?? pos[5], warnings, 'Conv2D') ?? 1
-      return { layerType: 'Conv2D', config: { filters: outC, kernelSize: ks, stride: st, padding: pad, dilation: dil, _inChannels: inC } }
+  function parsePyTorchLayerCall(s, warnings) {
+    const w = warnings
+  
+    // ── Convolutions ──
+    if (s.match(/nn\.Conv2d\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return {
+        layerType: 'Conv2D',
+        config: {
+          filters:    resolveNum(k.out_channels  ?? p[1], 64,  w, 'Conv2D'),
+          kernelSize: resolveNum(k.kernel_size    ?? p[2], 3,   w, 'Conv2D'),
+          stride:     resolveNum(k.stride         ?? p[3], 1,   w, 'Conv2D'),
+          padding:    resolveNum(k.padding        ?? p[4], 0,   w, 'Conv2D'),
+          dilation:   resolveNum(k.dilation       ?? p[5], 1,   w, 'Conv2D'),
+          _inChannels: resolveNum(k.in_channels   ?? p[0], null, w, 'Conv2D'),
+        }
+      }
     }
   
-    const linearMatch = s.match(/nn\.Linear\s*\(/)
-    if (linearMatch) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const units = resolveNum(kwargs.out_features ?? pos[1], warnings, 'Dense') ?? 256
-      return { layerType: 'Dense', config: { units } }
+    if (s.match(/nn\.ConvTranspose2d\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return {
+        layerType: 'ConvTranspose2D',
+        config: {
+          filters:    resolveNum(k.out_channels  ?? p[1], 64, w, 'ConvTranspose2D'),
+          kernelSize: resolveNum(k.kernel_size   ?? p[2], 2,  w, 'ConvTranspose2D'),
+          stride:     resolveNum(k.stride        ?? p[3], 2,  w, 'ConvTranspose2D'),
+          padding:    resolveNum(k.padding       ?? p[4], 0,  w, 'ConvTranspose2D'),
+          outputPadding: resolveNum(k.output_padding ?? p[5], 0, w, 'ConvTranspose2D'),
+          _inChannels: resolveNum(k.in_channels  ?? p[0], null, w, 'ConvTranspose2D'),
+        }
+      }
     }
   
-    const maxPoolMatch = s.match(/nn\.MaxPool2d\s*\(/)
-    if (maxPoolMatch) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const ks  = resolveNum(kwargs.kernel_size ?? pos[0], warnings, 'MaxPool2D') ?? 2
-      const st  = resolveNum(kwargs.stride      ?? pos[1], warnings, 'MaxPool2D') ?? ks
-      const pad = resolveNum(kwargs.padding     ?? pos[2], warnings, 'MaxPool2D') ?? 0
-      return { layerType: 'MaxPool2D', config: { kernelSize: ks, stride: st, padding: pad } }
+    // ── Linear ──
+    if (s.match(/nn\.Linear\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return {
+        layerType: 'Dense',
+        config: {
+          units:      resolveNum(k.out_features ?? p[1], 256, w, 'Dense'),
+          _inFeatures: resolveNum(k.in_features ?? p[0], null, w, 'Dense'),
+        }
+      }
     }
   
-   
+    // ── Pooling ──
+    if (s.match(/nn\.MaxPool2d\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const ks = resolveNum(k.kernel_size ?? p[0], 2, w, 'MaxPool2D')
+      return { layerType: 'MaxPool2D', config: { kernelSize: ks, stride: resolveNum(k.stride ?? p[1], ks, w, 'MaxPool2D'), padding: resolveNum(k.padding ?? p[2], 0, w, 'MaxPool2D') } }
+    }
+  
+    if (s.match(/nn\.AvgPool2d\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const ks = resolveNum(k.kernel_size ?? p[0], 2, w, 'AvgPool2D')
+      return { layerType: 'AvgPool2D', config: { kernelSize: ks, stride: resolveNum(k.stride ?? p[1], ks, w, 'AvgPool2D'), padding: resolveNum(k.padding ?? p[2], 0, w, 'AvgPool2D') } }
+    }
+  
+    if (s.match(/nn\.AdaptiveAvgPool2d\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const out = k.output_size ?? p[0] ?? '1'
+      const size = resolveNum(out.replace(/[()]/g, '').split(',')[0], 1, w, 'AdaptiveAvgPool')
+      return { layerType: 'AdaptiveAvgPool', config: { outputSize: size } }
+    }
+  
+    // GlobalAvgPool — common alias for AdaptiveAvgPool(1)
+    if (s.match(/nn\.AdaptiveAvgPool2d\s*\(\s*(?:1|\(1\s*,\s*1\))\s*\)/)) {
+      return { layerType: 'GlobalAvgPool', config: {} }
+    }
+  
+    // ── Normalization ──
     if (s.match(/nn\.BatchNorm2d\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const eps = resolveNum(kwargs.eps ?? null, warnings, 'BatchNorm') ?? 1e-5
-      const mom = resolveNum(kwargs.momentum ?? null, warnings, 'BatchNorm') ?? 0.1
-      return { layerType: 'BatchNorm', config: { eps, momentum: mom } }
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return { layerType: 'BatchNorm', config: { eps: resolveNum(k.eps, 1e-5, w, 'BatchNorm'), momentum: resolveNum(k.momentum, 0.1, w, 'BatchNorm') } }
     }
   
- 
-    if (s.match(/nn\.Dropout\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const p = resolveNum(kwargs.p ?? pos[0], warnings, 'Dropout') ?? 0.5
-      return { layerType: 'Dropout', config: { p } }
+    if (s.match(/nn\.BatchNorm1d\s*\(/)) {
+      return { layerType: 'BatchNorm', config: { eps: 1e-5, momentum: 0.1 } }
     }
   
-
-    if (s.match(/nn\.Flatten\s*\(/)) {
-      return { layerType: 'Flatten', config: {} }
-    }
-  
-   
-    if (s.match(/nn\.MultiheadAttention\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const embed_dim = resolveNum(kwargs.embed_dim ?? pos[0], warnings, 'MultiHeadAttention') ?? 512
-      const num_heads = resolveNum(kwargs.num_heads ?? pos[1], warnings, 'MultiHeadAttention') ?? 8
-      const dropout   = resolveNum(kwargs.dropout   ?? null,   warnings, 'MultiHeadAttention') ?? 0.1
-      return { layerType: 'MultiHeadAttention', config: { embed_dim, num_heads, dropout } }
-    }
-  
-
-    if (s.match(/nn\.LSTM\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const hidden_size   = resolveNum(kwargs.hidden_size   ?? pos[1], warnings, 'LSTM') ?? 256
-      const num_layers    = resolveNum(kwargs.num_layers    ?? pos[2], warnings, 'LSTM') ?? 1
-      const bidirectional = resolveBool(kwargs.bidirectional, false)
-      return { layerType: 'LSTM', config: { hidden_size, num_layers, bidirectional, return_sequences: true } }
-    }
-  
-  
-    if (s.match(/nn\.Embedding\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const num_embeddings = resolveNum(kwargs.num_embeddings ?? pos[0], warnings, 'Embedding') ?? 10000
-      const embedding_dim  = resolveNum(kwargs.embedding_dim  ?? pos[1], warnings, 'Embedding') ?? 256
-      return { layerType: 'Embedding', config: { num_embeddings, embedding_dim } }
-    }
-  
-    
     if (s.match(/nn\.LayerNorm\s*\(/)) {
       return { layerType: 'LayerNorm', config: {} }
     }
   
-    
-    if (s.match(/nn\.(ReLU|GELU|Sigmoid|Tanh|Softmax|LeakyReLU|ELU|SiLU|Mish|Identity)\s*\(/)) {
-      return null 
+    if (s.match(/nn\.GroupNorm\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const numGroups = resolveNum(k.num_groups ?? p[0], 8, w, 'GroupNorm')
+      return { layerType: 'GroupNorm', config: { numGroups } }
     }
   
-    return 'unknown'
-  }
-  
-  function detectSkipConnections(forwardBody) {
-    const skips = []
-  
-    const addPatterns = [...forwardBody.matchAll(/(\w+)\s*=\s*(\w+)\s*\+\s*(\w+)/g)]
-    for (const m of addPatterns) {
-      skips.push({ type: 'add', varNames: [m[2], m[3]], assignTo: m[1] })
+    // ── Regularization ──
+    if (s.match(/nn\.Dropout2d?\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return { layerType: 'Dropout', config: { p: resolveNum(k.p ?? p[0], 0.5, w, 'Dropout') } }
     }
   
-
-    const catPatterns = [...forwardBody.matchAll(/torch\.cat\s*\(\s*\[([^\]]+)\]/g)]
-    for (const m of catPatterns) {
-      const vars = m[1].split(',').map(v => v.trim()).filter(Boolean)
-      skips.push({ type: 'concat', varNames: vars })
+    // ── Reshaping ──
+    if (s.match(/nn\.Flatten\s*\(/)) {
+      const { kwargs: k } = extractLayerArgs(extractArgString(s))
+      const startDim = resolveNum(k.start_dim, 1, w, 'Flatten')
+      return { layerType: 'Flatten', config: { startDim } }
     }
   
-    return skips
-  }
+    if (s.match(/nn\.Upsample\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const scale = resolveNum(k.scale_factor ?? p[0], 2, w, 'Upsample')
+      const mode = (k.mode ?? "'nearest'").replace(/['"]/g, '')
+      return { layerType: 'Upsample', config: { scaleFactor: scale, mode } }
+    }
   
-  export function parsePyTorch(codeString) {
-    const errors = []
-    const warnings = []
-    const layers = []
-  
-    const code = stripCommentsAndDocstrings(codeString)
-  
-
-    const seqMatch = code.match(/nn\.Sequential\s*\(([\s\S]*?)\)(?=\s*$|\s*\n|\s*#|\s*self)/m)
-    if (seqMatch) {
-      const body = seqMatch[1]
- 
-      const layerCallRegex = /nn\.\w+\s*\([^()]*(?:\([^()]*\)[^()]*)*\)/g
-      const calls = body.match(layerCallRegex) || []
-      for (const call of calls) {
-        const result = parsePyTorchLayerCall(call, warnings)
-        if (result === null) continue // activation, skip
-        if (result === 'unknown') {
-          const name = call.match(/nn\.(\w+)/)?.[1] || call
-          warnings.push(`Unsupported layer "${name}" — imported as Unknown node.`)
-          layers.push({ layerType: 'Unknown', config: {}, label: name })
-        } else {
-          layers.push(result)
+    // ── Attention & Sequence ──
+    if (s.match(/nn\.MultiheadAttention\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return {
+        layerType: 'MultiHeadAttention',
+        config: {
+          embed_dim:  resolveNum(k.embed_dim ?? p[0], 512, w, 'MHA'),
+          num_heads:  resolveNum(k.num_heads ?? p[1], 8,   w, 'MHA'),
+          dropout:    resolveNum(k.dropout,            0.1, w, 'MHA'),
         }
       }
-      if (layers.length > 0) {
-        return buildSequentialResult(layers, errors, warnings)
-      }
     }
   
-  
-    const selfAssignRegex = /self\.(\w+)\s*=\s*(nn\.\w+\s*\([^;]*?\))\s*(?:\n|$)/g
-    const selfLayers = []
-    const selfNameMap = {} 
-    let m
-    while ((m = selfAssignRegex.exec(code)) !== null) {
-      const attrName = m[1]
-      const callStr  = m[2]
-      const result = parsePyTorchLayerCall(callStr, warnings)
-      if (result === null) continue
-      if (result === 'unknown') {
-        const name = callStr.match(/nn\.(\w+)/)?.[1] || attrName
-        warnings.push(`Unsupported layer "${name}" (self.${attrName}) — imported as Unknown node.`)
-        selfNameMap[attrName] = selfLayers.length
-        selfLayers.push({ layerType: 'Unknown', config: {}, label: name })
-      } else {
-        selfNameMap[attrName] = selfLayers.length
-        selfLayers.push({ ...result, _attrName: attrName })
-      }
-    }
-  
-   
-    const customClassRegex = /class\s+(\w+)\s*\(\s*nn\.Module\s*\)/g
-    const knownClass = codeString.match(/class\s+(\w+)\s*\(\s*nn\.Module\s*\)/)?.[1]
-    const customClasses = [...codeString.matchAll(/class\s+(\w+)\s*\(\s*nn\.Module\s*\)/g)]
-      .map(x => x[1])
-      .filter(name => name !== knownClass)
-    for (const cls of customClasses) {
-      warnings.push(`Custom layer class "${cls}(nn.Module)" detected — imported as Unknown node.`)
-      selfLayers.push({ layerType: 'Unknown', config: {}, label: cls })
-    }
-  
-  
-    const forwardMatch = code.match(/def\s+forward\s*\(self[^)]*\)\s*:([\s\S]*?)(?=\n\s*def |\n\s*class |\Z|$)/m)
-    const forwardBody = forwardMatch ? forwardMatch[1] : ''
-  
-   
-    const skips = detectSkipConnections(forwardBody)
-  
-    if (selfLayers.length === 0) {
-      errors.push('No recognized PyTorch layers found. Paste a class with nn.Module or nn.Sequential.')
-      return { layers: [], edges: [], inputShape: null, errors, warnings }
-    }
-
-    const forwardCallRegex = /self\.(\w+)\s*\(/g
-    const forwardOrder = []
-    let fm
-    while ((fm = forwardCallRegex.exec(forwardBody)) !== null) {
-      const attr = fm[1]
-      if (selfNameMap[attr] !== undefined && !forwardOrder.includes(attr)) {
-        forwardOrder.push(attr)
-      }
-    }
-
-    const orderedLayers = []
-    const seen = new Set()
-    for (const attr of forwardOrder) {
-      const idx = selfNameMap[attr]
-      if (idx !== undefined && !seen.has(attr)) {
-        seen.add(attr)
-        orderedLayers.push(selfLayers[idx])
-      }
-    }
-
-    for (const layer of selfLayers) {
-      if (!seen.has(layer._attrName)) {
-        if (layer._attrName) {
-          warnings.push(`self.${layer._attrName} was defined but not detected in forward() — added at end.`)
+    if (s.match(/nn\.LSTM\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return {
+        layerType: 'LSTM',
+        config: {
+          hidden_size:     resolveNum(k.hidden_size ?? p[1], 256, w, 'LSTM'),
+          num_layers:      resolveNum(k.num_layers  ?? p[2], 1,   w, 'LSTM'),
+          bidirectional:   resolveBool(k.bidirectional, false),
+          return_sequences: true,
+          _inputSize:      resolveNum(k.input_size  ?? p[0], null, w, 'LSTM'),
         }
-        orderedLayers.push(layer)
       }
     }
   
-
-    const mergeInserts = skips.map(sk => ({
-      layerType: 'Merge',
-      config: { mode: sk.type === 'concat' ? 'concat' : 'add' },
-      _isMerge: true,
-    }))
-  
-  
-    const finalLayers = [...orderedLayers]
-    if (mergeInserts.length > 0 && orderedLayers.length >= 2) {
-      const insertAt = Math.floor(orderedLayers.length / 2)
-      finalLayers.splice(insertAt + 1, 0, ...mergeInserts.slice(0, 1))
-      if (mergeInserts.length > 1) {
-        warnings.push(`${mergeInserts.length - 1} additional skip connection(s) detected but could not be auto-positioned — please connect manually.`)
+    if (s.match(/nn\.GRU\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return {
+        layerType: 'GRU',
+        config: {
+          hidden_size:     resolveNum(k.hidden_size ?? p[1], 256, w, 'GRU'),
+          num_layers:      resolveNum(k.num_layers  ?? p[2], 1,   w, 'GRU'),
+          bidirectional:   resolveBool(k.bidirectional, false),
+          return_sequences: true,
+          _inputSize:      resolveNum(k.input_size  ?? p[0], null, w, 'GRU'),
+        }
       }
     }
   
-    return buildSequentialResult(finalLayers, errors, warnings)
-  }
-
-  function parseKerasLayerCall(callStr, warnings) {
-    const s = callStr.trim()
-  
-    // Conv2D
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Conv2D\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const filters  = resolveNum(kwargs.filters    ?? pos[0], warnings, 'Conv2D') ?? 64
-      const ks       = resolveNum(kwargs.kernel_size ?? pos[1], warnings, 'Conv2D') ?? 3
-      const st       = resolveNum(kwargs.strides     ?? pos[2], warnings, 'Conv2D') ?? 1
-      const padStr   = (kwargs.padding || '').replace(/['"]/g, '').toLowerCase()
-      const padding  = padStr === 'same' ? 1 : 0
-      return { layerType: 'Conv2D', config: { filters, kernelSize: ks, stride: st, padding, dilation: 1 } }
+    if (s.match(/nn\.Embedding\s*\(/)) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return {
+        layerType: 'Embedding',
+        config: {
+          num_embeddings: resolveNum(k.num_embeddings ?? p[0], 10000, w, 'Embedding'),
+          embedding_dim:  resolveNum(k.embedding_dim  ?? p[1], 256,   w, 'Embedding'),
+        }
+      }
     }
   
-    // Dense
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Dense\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const units = resolveNum(kwargs.units ?? pos[0], warnings, 'Dense') ?? 256
-      return { layerType: 'Dense', config: { units } }
-    }
-  
-    // MaxPooling2D
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)MaxPooling2D\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const ks = resolveNum(kwargs.pool_size ?? pos[0], warnings, 'MaxPool2D') ?? 2
-      const st = resolveNum(kwargs.strides   ?? pos[1], warnings, 'MaxPool2D') ?? ks
-      return { layerType: 'MaxPool2D', config: { kernelSize: ks, stride: st, padding: 0 } }
-    }
-  
-    // BatchNormalization
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)BatchNormalization\s*\(/)) {
-      return { layerType: 'BatchNorm', config: { eps: 1e-5, momentum: 0.1 } }
-    }
-  
-    // Dropout
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Dropout\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const rate = resolveNum(kwargs.rate ?? pos[0], warnings, 'Dropout') ?? 0.5
-      return { layerType: 'Dropout', config: { p: rate } }
-    }
-  
-    // Flatten
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Flatten\s*\(/)) {
-      return { layerType: 'Flatten', config: {} }
-    }
-  
-    // MultiHeadAttention
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)MultiHeadAttention\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const num_heads = resolveNum(kwargs.num_heads ?? pos[0], warnings, 'MultiHeadAttention') ?? 8
-      const key_dim   = resolveNum(kwargs.key_dim   ?? pos[1], warnings, 'MultiHeadAttention') ?? 64
-      const embed_dim = num_heads * key_dim
-      return { layerType: 'MultiHeadAttention', config: { embed_dim, num_heads, dropout: 0.1 } }
-    }
-  
-    // LSTM
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)(?:Bidirectional\s*\(\s*layers\.)?LSTM\s*\(/)) {
-      const bidirectional = s.includes('Bidirectional')
-   
-      const inner = bidirectional ? s.replace(/layers\.Bidirectional\s*\(/, '') : s
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(inner))
-      const hidden_size = resolveNum(kwargs.units ?? pos[0], warnings, 'LSTM') ?? 256
-      const ret_seq     = resolveBool(kwargs.return_sequences, true)
-      return { layerType: 'LSTM', config: { hidden_size, num_layers: 1, bidirectional, return_sequences: ret_seq } }
-    }
-  
-    // Embedding
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Embedding\s*\(/)) {
-      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
-      const num_embeddings = resolveNum(kwargs.input_dim  ?? pos[0], warnings, 'Embedding') ?? 10000
-      const embedding_dim  = resolveNum(kwargs.output_dim ?? pos[1], warnings, 'Embedding') ?? 256
-      return { layerType: 'Embedding', config: { num_embeddings, embedding_dim } }
-    }
-  
-    // LayerNormalization
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)LayerNormalization\s*\(/)) {
-      return { layerType: 'LayerNorm', config: {} }
-    }
-  
-    // Merge: Add
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Add\s*\(/)) {
-      return { layerType: 'Merge', config: { mode: 'add' } }
-    }
-  
-    // Merge: Concatenate
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Concatenate\s*\(/)) {
-      return { layerType: 'Merge', config: { mode: 'concat' } }
-    }
-  
-    // Lambda layers ->  Unknown
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Lambda\s*\(/)) {
-      warnings.push('Lambda layer detected — imported as Unknown node.')
-      return { layerType: 'Unknown', config: {}, label: 'Lambda' }
-    }
-  
-    // Activation-only ->  skip
-    if (s.match(/(?:layers\.|tf\.keras\.layers\.)(?:ReLU|Activation|Softmax|Sigmoid|LeakyReLU|ELU|PReLU)\s*\(/)) {
+    // ── Activations (skip — no shape change) ──
+    if (s.match(/nn\.(ReLU|GELU|Sigmoid|Tanh|Softmax|LogSoftmax|LeakyReLU|ELU|SiLU|Mish|Hardswish|PReLU|Identity|SELU)\s*\(/)) {
       return null
     }
   
     return 'unknown'
   }
-
-  export function parseTensorFlow(codeString) {
-    const errors = []
-    const warnings = []
-    const layers = []
   
-    const code = stripCommentsAndDocstrings(codeString)
+  // ─── KERAS LAYER PARSER ───────────────────────────────────────────────────────
   
-    
-    const addRegex = /model\.add\s*\(\s*(.*?)\s*\)/g
-    const addMatches = [...code.matchAll(addRegex)]
+  function parseKerasLayerCall(s, warnings) {
+    const w = warnings
+    const L = /(?:layers\.|tf\.keras\.layers\.|keras\.layers\.)/
   
-    if (addMatches.length > 0) {
-      for (const m of addMatches) {
-        const call = m[1]
-        const result = parseKerasLayerCall(call, warnings)
-        if (result === null) continue
-        if (result === 'unknown') {
-          const name = call.match(/layers\.(\w+)/)?.[1] || 'Unknown'
-          warnings.push(`Unsupported Keras layer "${name}" — imported as Unknown node.`)
-          layers.push({ layerType: 'Unknown', config: {}, label: name })
+    if (s.match(new RegExp(L.source + 'Conv2D\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const padStr = (k.padding ?? '').replace(/['"]/g, '').toLowerCase()
+      return { layerType: 'Conv2D', config: { filters: resolveNum(k.filters ?? p[0], 64, w, 'Conv2D'), kernelSize: resolveNum(k.kernel_size ?? p[1], 3, w, 'Conv2D'), stride: resolveNum(k.strides ?? p[2], 1, w, 'Conv2D'), padding: padStr === 'same' ? 1 : 0, dilation: 1 } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'Conv2DTranspose\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return { layerType: 'ConvTranspose2D', config: { filters: resolveNum(k.filters ?? p[0], 64, w, 'ConvTranspose2D'), kernelSize: resolveNum(k.kernel_size ?? p[1], 2, w, 'ConvTranspose2D'), stride: resolveNum(k.strides ?? p[2], 2, w, 'ConvTranspose2D'), padding: 0, outputPadding: 0 } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'Dense\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return { layerType: 'Dense', config: { units: resolveNum(k.units ?? p[0], 256, w, 'Dense') } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'MaxPooling2D\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const ks = resolveNum(k.pool_size ?? p[0], 2, w, 'MaxPool2D')
+      return { layerType: 'MaxPool2D', config: { kernelSize: ks, stride: resolveNum(k.strides ?? p[1], ks, w, 'MaxPool2D'), padding: 0 } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'AveragePooling2D\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const ks = resolveNum(k.pool_size ?? p[0], 2, w, 'AvgPool2D')
+      return { layerType: 'AvgPool2D', config: { kernelSize: ks, stride: resolveNum(k.strides ?? p[1], ks, w, 'AvgPool2D'), padding: 0 } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'GlobalAveragePooling2D\\s*\\('))) {
+      return { layerType: 'GlobalAvgPool', config: {} }
+    }
+  
+    if (s.match(new RegExp(L.source + 'BatchNormalization\\s*\\('))) {
+      return { layerType: 'BatchNorm', config: { eps: 1e-5, momentum: 0.1 } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'LayerNormalization\\s*\\('))) {
+      return { layerType: 'LayerNorm', config: {} }
+    }
+  
+    if (s.match(new RegExp(L.source + 'Dropout\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return { layerType: 'Dropout', config: { p: resolveNum(k.rate ?? p[0], 0.5, w, 'Dropout') } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'Flatten\\s*\\('))) {
+      return { layerType: 'Flatten', config: {} }
+    }
+  
+    if (s.match(new RegExp(L.source + 'Reshape\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const targetStr = k.target_shape ?? p[0] ?? ''
+      const dims = targetStr.replace(/[()[\]]/g, '').split(',').map(x => resolveNum(x.trim(), null, w, 'Reshape')).filter(x => x !== null)
+      return { layerType: 'Reshape', config: { targetC: dims[0] ?? 64, targetH: dims[1], targetW: dims[2] } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'MultiHeadAttention\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const num_heads = resolveNum(k.num_heads ?? p[0], 8, w, 'MHA')
+      const key_dim   = resolveNum(k.key_dim   ?? p[1], 64, w, 'MHA')
+      return { layerType: 'MultiHeadAttention', config: { embed_dim: num_heads * key_dim, num_heads, dropout: 0.1 } }
+    }
+  
+    if (s.match(new RegExp(L.source + '(?:Bidirectional\\s*\\(\\s*' + L.source + ')?LSTM\\s*\\('))) {
+      const bidir = s.includes('Bidirectional')
+      const inner = bidir ? s.replace(/.*?Bidirectional\s*\(\s*/, '') : s
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(inner))
+      return { layerType: 'LSTM', config: { hidden_size: resolveNum(k.units ?? p[0], 256, w, 'LSTM'), num_layers: 1, bidirectional: bidir, return_sequences: resolveBool(k.return_sequences, true) } }
+    }
+  
+    if (s.match(new RegExp(L.source + '(?:Bidirectional\\s*\\(\\s*' + L.source + ')?GRU\\s*\\('))) {
+      const bidir = s.includes('Bidirectional')
+      const inner = bidir ? s.replace(/.*?Bidirectional\s*\(\s*/, '') : s
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(inner))
+      return { layerType: 'GRU', config: { hidden_size: resolveNum(k.units ?? p[0], 256, w, 'GRU'), num_layers: 1, bidirectional: bidir, return_sequences: resolveBool(k.return_sequences, true) } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'Embedding\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      return { layerType: 'Embedding', config: { num_embeddings: resolveNum(k.input_dim ?? p[0], 10000, w, 'Embedding'), embedding_dim: resolveNum(k.output_dim ?? p[1], 256, w, 'Embedding') } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'Add\\s*\\('))) return { layerType: 'Merge', config: { mode: 'add' } }
+    if (s.match(new RegExp(L.source + 'Concatenate\\s*\\('))) return { layerType: 'Merge', config: { mode: 'concat' } }
+  
+    if (s.match(new RegExp(L.source + 'UpSampling2D\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const sz = resolveNum((k.size ?? p[0] ?? '2').replace(/[()]/g, '').split(',')[0], 2, w, 'Upsample')
+      return { layerType: 'Upsample', config: { scaleFactor: sz, mode: 'nearest' } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'ZeroPadding2D\\s*\\('))) {
+      const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
+      const pad = resolveNum((k.padding ?? p[0] ?? '1').replace(/[()]/g, '').split(',')[0], 1, w, 'ZeroPad2D')
+      return { layerType: 'ZeroPad2D', config: { padding: pad } }
+    }
+  
+    if (s.match(new RegExp(L.source + 'Lambda\\s*\\('))) {
+      warnings.push('Lambda layer detected — imported as Unknown (dynamic code).')
+      return { layerType: 'Unknown', config: {}, label: 'Lambda' }
+    }
+  
+    if (s.match(new RegExp(L.source + '(?:ReLU|Activation|Softmax|Sigmoid|LeakyReLU|ELU|PReLU|GELU)\\s*\\('))) return null
+  
+    return 'unknown'
+  }
+  
+  // ─── FORWARD-PASS TRACER ─────────────────────────────────────────────────────
+  /**
+   * Traces forward() body line-by-line.
+   * Builds a variable→layer map and detects:
+   *   - view/reshape/flatten calls on tensors
+   *   - torch.cat / tensor addition (skip connections)
+   *   - self.layer(x) patterns  (single or chained)
+   *   - x = x.permute(...)  pattern
+   *   - Nested sequential blocks via self.block(x)
+   */
+  function traceForwardBody(forwardBody, symbolTable, warnings) {
+    // Ordered list of {varOut, layerRef, parents, op, args}
+    const ops = []
+    const lines = forwardBody.split('\n').map(l => l.trim()).filter(Boolean)
+  
+    for (const line of lines) {
+      // ── Skip pure return / assert / print lines ──
+      if (/^return\s/.test(line) || /^assert\s/.test(line) || /^print\s/.test(line)) continue
+  
+      // ── Assignment lines: lhs = rhs ──
+      const assignMatch = line.match(/^(\w+)\s*=\s*(.+)$/)
+      if (!assignMatch) continue
+      const [, lhs, rhs] = assignMatch
+  
+      // ─ torch.cat([a, b, ...], dim=N) ─
+      const catMatch = rhs.match(/torch\.cat\s*\(\s*\[([^\]]+)\]\s*(?:,\s*dim\s*=\s*(-?\d+))?\s*\)/)
+      if (catMatch) {
+        const parents = catMatch[1].split(',').map(v => v.trim()).filter(Boolean)
+        const dim = parseInt(catMatch[2] ?? '1')
+        ops.push({ varOut: lhs, op: 'cat', parents, dim })
+        continue
+      }
+  
+      // ─ element-wise add: a + b ─
+      const addMatch = rhs.match(/^(\w+)\s*\+\s*(\w+)$/)
+      if (addMatch) {
+        ops.push({ varOut: lhs, op: 'add', parents: [addMatch[1], addMatch[2]] })
+        continue
+      }
+  
+      // ─ .view(...) / .reshape(...) / .flatten(...) ─
+      const viewMatch = rhs.match(/^(\w+)\.(?:view|reshape)\s*\((.+)\)$/)
+      if (viewMatch) {
+        const dims = splitArgs(viewMatch[2]).map(d => resolveNum(d, null))
+        ops.push({ varOut: lhs, op: 'view', parents: [viewMatch[1]], dims })
+        continue
+      }
+  
+      const flattenMatch = rhs.match(/^(\w+)\.flatten\s*\((.*)?\)$/)
+      if (flattenMatch) {
+        const startDim = resolveNum(splitArgs(flattenMatch[2] || '1')[0], 1)
+        ops.push({ varOut: lhs, op: 'flatten', parents: [flattenMatch[1]], startDim })
+        continue
+      }
+  
+      // ─ .permute(...) ─
+      const permuteMatch = rhs.match(/^(\w+)\.permute\s*\((.+)\)/)
+      if (permuteMatch) {
+        const perm = splitArgs(permuteMatch[2]).map(d => parseInt(d)).filter(n => !isNaN(n))
+        ops.push({ varOut: lhs, op: 'permute', parents: [permuteMatch[1]], permutation: perm })
+        continue
+      }
+  
+      // ─ .squeeze() / .unsqueeze(dim) ─
+      const squeezeMatch = rhs.match(/^(\w+)\.(squeeze|unsqueeze)\s*\((.*)?\)/)
+      if (squeezeMatch) {
+        const dim = resolveNum(squeezeMatch[3], null)
+        ops.push({ varOut: lhs, op: squeezeMatch[2], parents: [squeezeMatch[1]], dim })
+        continue
+      }
+  
+      // ─ .transpose(a, b) ─
+      const transposeMatch = rhs.match(/^(\w+)\.transpose\s*\((.+)\)/)
+      if (transposeMatch) {
+        const [da, db] = splitArgs(transposeMatch[2]).map(d => parseInt(d))
+        ops.push({ varOut: lhs, op: 'transpose', parents: [transposeMatch[1]], dims: [da, db] })
+        continue
+      }
+  
+      // ─ self.layer(x) or self.layer(x, x, x) ─
+      const selfCallMatch = rhs.match(/^self\.(\w+)\s*\((.+)\)$/)
+      if (selfCallMatch) {
+        const attrName = selfCallMatch[1]
+        const argStr = selfCallMatch[2]
+        const argVars = splitArgs(argStr).map(v => v.trim().split(/[,.\s(]/)[0]).filter(Boolean)
+  
+        if (symbolTable[attrName]) {
+          ops.push({
+            varOut: lhs,
+            op: 'layer',
+            layerAttr: attrName,
+            layerDef: symbolTable[attrName],
+            parents: [argVars[0]].filter(Boolean),
+          })
         } else {
-          layers.push(result)
+          // It's a sub-module call — treat as passthrough with warning
+          warnings.push(`self.${attrName} called in forward() but not found in __init__ symbol table. It may be a sub-module — adding as Unknown.`)
+          ops.push({ varOut: lhs, op: 'unknown', layerAttr: attrName, parents: [argVars[0]].filter(Boolean) })
         }
+        continue
       }
-      if (layers.length > 0) return buildSequentialResult(layers, errors, warnings)
+  
+      // ─ MHA tuple unpack: out, _ = self.attn(q, k, v) ─
+      const mhaTupleMatch = line.match(/^(\w+)\s*,\s*_\s*=\s*self\.(\w+)\s*\((.+)\)$/)
+      if (mhaTupleMatch) {
+        const [, outVar, attrName, argStr] = mhaTupleMatch
+        const argVars = splitArgs(argStr).map(v => v.trim().split(/[.\s(]/)[0]).filter(Boolean)
+        if (symbolTable[attrName]) {
+          ops.push({ varOut: outVar, op: 'layer', layerAttr: attrName, layerDef: symbolTable[attrName], parents: [argVars[0]] })
+        }
+        continue
+      }
+  
+      // ─ LSTM/GRU unpack: out, (h, c) = self.lstm(x) ─
+      const lstmUnpackMatch = line.match(/^(\w+)\s*,\s*[(_].*=\s*self\.(\w+)\s*\((.+)\)$/)
+      if (lstmUnpackMatch) {
+        const [, outVar, attrName, argStr] = lstmUnpackMatch
+        const argVars = splitArgs(argStr).map(v => v.trim().split(/[.\s(]/)[0]).filter(Boolean)
+        if (symbolTable[attrName]) {
+          ops.push({ varOut: outVar, op: 'layer', layerAttr: attrName, layerDef: symbolTable[attrName], parents: [argVars[0]] })
+        }
+        continue
+      }
+  
+      // ─ F.relu(x), F.softmax(x, dim=...) — skip (shape passthrough) ─
+      if (/^[Ff]\.(?:relu|gelu|sigmoid|tanh|softmax|log_softmax|dropout|leaky_relu|elu|selu|hardswish|mish)\s*\(/.test(rhs)) {
+        const fMatch = rhs.match(/^[Ff]\.\w+\s*\((\w+)/)
+        if (fMatch) ops.push({ varOut: lhs, op: 'passthrough', parents: [fMatch[1]] })
+        continue
+      }
+  
+      // ─ x.mean(dim=...) / x.sum(dim=...) — shape-changing ─
+      const meanMatch = rhs.match(/^(\w+)\.(mean|sum|max|min)\s*\(\s*dim\s*=\s*(-?\d+)/)
+      if (meanMatch) {
+        ops.push({ varOut: lhs, op: 'reduce', parents: [meanMatch[1]], dim: parseInt(meanMatch[3]), keepdim: rhs.includes('keepdim=True') })
+        continue
+      }
+  
+      // ─ Direct variable copy: y = x ─
+      const copyMatch = rhs.match(/^(\w+)$/)
+      if (copyMatch && !/^\d/.test(copyMatch[1])) {
+        ops.push({ varOut: lhs, op: 'passthrough', parents: [copyMatch[1]] })
+      }
     }
   
-
-    const funcRegex = /(\w+)\s*=\s*((?:layers\.|tf\.keras\.layers\.)\w+(?:\s*\([^)]*\))?)\s*\(/g
-
-    const lineRegex = /(\w+)\s*=\s*((?:layers\.|tf\.keras\.layers\.)[\w.]+\s*\([^)]*(?:\([^)]*\)[^)]*)*\))\s*(?:\(([^)]*)\))?/g
+    return ops
+  }
   
+  // ─── GRAPH BUILDER FROM OPS ──────────────────────────────────────────────────
+  /**
+   * Takes the ops trace + symbol table and builds nodes/edges.
+   * Handles the mapping from variable names to node IDs.
+   */
+  function buildGraphFromOps(ops, inputNodeId, warnings) {
+    const nodes = []
+    const edges = []
+    const varToNodeId = { x: inputNodeId, input: inputNodeId }
+    let yPos = 155
   
-    const kerasLayerRegex = /(?:layers\.|tf\.keras\.layers\.)(?:Bidirectional\s*\()?[\w]+\s*\([^;)]*(?:\([^)]*\)[^;)]*)*\)/g
-    const kerasCalls = code.match(kerasLayerRegex) || []
+    for (const op of ops) {
+      const nodeId = uid()
+      let layerDef = null
   
-    for (const call of kerasCalls) {
-      const result = parseKerasLayerCall(call, warnings)
-      if (result === null) continue
-      if (result === 'unknown') {
-        const name = call.match(/layers\.(\w+)/)?.[1] || 'Unknown'
-        warnings.push(`Unsupported Keras layer "${name}" — imported as Unknown node.`)
-        layers.push({ layerType: 'Unknown', config: {}, label: name })
+      if (op.op === 'layer') {
+        layerDef = op.layerDef
+      } else if (op.op === 'cat') {
+        layerDef = { layerType: 'Merge', config: { mode: 'concat' } }
+      } else if (op.op === 'add') {
+        layerDef = { layerType: 'Merge', config: { mode: 'add' } }
+      } else if (op.op === 'view' || op.op === 'reshape') {
+        // Attempt to extract a concrete target shape from dims
+        // dims[0] is usually -1 (batch), skip it
+        const nonBatch = (op.dims ?? []).filter(d => d !== null && d !== -1)
+        if (nonBatch.length >= 1) {
+          layerDef = { layerType: 'Reshape', config: { targetC: nonBatch[0], targetH: nonBatch[1], targetW: nonBatch[2] } }
+        } else {
+          layerDef = { layerType: 'Reshape', config: { targetC: null, targetH: null, targetW: null } }
+          warnings.push(`view/reshape at "${op.varOut}": could not resolve target shape — inspect manually.`)
+        }
+      } else if (op.op === 'flatten') {
+        layerDef = { layerType: 'Flatten', config: { startDim: op.startDim ?? 1 } }
+      } else if (op.op === 'permute') {
+        layerDef = { layerType: 'Permute', config: { permutation: op.permutation } }
+      } else if (op.op === 'unsqueeze') {
+        layerDef = { layerType: 'Reshape', config: { _unsqueeze: true, dim: op.dim } }
+      } else if (op.op === 'squeeze') {
+        layerDef = { layerType: 'Reshape', config: { _squeeze: true, dim: op.dim } }
+      } else if (op.op === 'transpose') {
+        layerDef = { layerType: 'Permute', config: { _transpose: true, dims: op.dims } }
+      } else if (op.op === 'reduce') {
+        layerDef = { layerType: 'Reshape', config: { _reduce: true, dim: op.dim, keepdim: op.keepdim } }
+      } else if (op.op === 'passthrough') {
+        // Wire the same node through
+        const srcId = op.parents[0] ? (varToNodeId[op.parents[0]] ?? null) : null
+        if (srcId) varToNodeId[op.varOut] = srcId
+        continue
+      } else if (op.op === 'unknown') {
+        layerDef = { layerType: 'Unknown', config: {}, label: op.layerAttr }
       } else {
-        layers.push(result)
+        continue
       }
-    }
   
-   
-    const addMergeRegex = /layers\.Add\s*\(\)\s*\(\[([^\]]+)\]\)/g
-    const catMergeRegex = /layers\.Concatenate[^(]*\(\)[^(]*\(\[([^\]]+)\]\)/g
-
+      if (!layerDef) continue
   
-    if (layers.length === 0) {
-   
-      const seqMatch = code.match(/Sequential\s*\(\s*\[([\s\S]*?)\]\s*\)/)
-      if (seqMatch) {
-        const body = seqMatch[1]
-        const calls = body.match(/(?:layers\.|tf\.keras\.layers\.)\w+\s*\([^)]*\)/g) || []
-        for (const call of calls) {
-          const result = parseKerasLayerCall(call, warnings)
-          if (result === null) continue
-          if (result === 'unknown') {
-            const name = call.match(/layers\.(\w+)/)?.[1] || 'Unknown'
-            warnings.push(`Unsupported Keras layer "${name}" — imported as Unknown node.`)
-            layers.push({ layerType: 'Unknown', config: {}, label: name })
-          } else {
-            layers.push(result)
-          }
+      nodes.push({
+        id: nodeId,
+        type: layerDef.layerType,
+        position: { x: 300, y: yPos },
+        config: layerDef.config || {},
+        _label: layerDef.label,
+      })
+      yPos += 130
+  
+      // Wire edges
+      const parents = op.parents ?? []
+      for (const parentVar of parents) {
+        const srcId = varToNodeId[parentVar]
+        if (srcId) {
+          edges.push({ id: `e-${srcId}-${nodeId}`, source: srcId, target: nodeId })
         }
       }
+  
+      varToNodeId[op.varOut] = nodeId
     }
   
-    if (layers.length === 0) {
-      errors.push('No recognized Keras/TF layers found. Paste a model using layers.X() or model.add() patterns.')
+    return { nodes, edges }
+  }
+  
+  // ─── SEQUENTIAL BUILDER ──────────────────────────────────────────────────────
+  
+  function buildSequentialGraph(layers, errors, warnings) {
+    const nodes = [], edges = []
+    const inputId = 'input'
+    nodes.push({ id: inputId, type: 'Input', position: { x: 300, y: 30 }, config: {} })
+  
+    let prevId = inputId, yPos = 155
+    for (const layer of layers) {
+      if (!layer?.layerType || layer.layerType === 'Unknown') continue
+      const id = uid()
+      nodes.push({ id, type: layer.layerType, position: { x: 300, y: yPos }, config: layer.config || {} })
+      edges.push({ id: `e-${prevId}-${id}`, source: prevId, target: id })
+      prevId = id
+      yPos += 130
+    }
+    return { layers: nodes, edges, inputShape: null, errors, warnings }
+  }
+  
+  // ─── PYTORCH MAIN PARSER ─────────────────────────────────────────────────────
+  
+  export function parsePyTorch(codeString) {
+    const errors = [], warnings = []
+    const code = stripNoise(codeString)
+  
+    // ── 1. Try nn.Sequential first ──
+    // Matches multi-line Sequential with proper depth-tracking
+    const seqMatch = code.match(/nn\.Sequential\s*\(([\s\S]*?)\n\s*\)/)
+    if (seqMatch) {
+      const body = seqMatch[1]
+      const callRegex = /nn\.\w+\s*\([^()]*(?:\([^()]*\)[^()]*)*\)/g
+      const calls = body.match(callRegex) || []
+      const layers = []
+      for (const call of calls) {
+        const r = parsePyTorchLayerCall(call, warnings)
+        if (r === null) continue
+        if (r === 'unknown') { warnings.push(`Unsupported layer in Sequential: "${call.slice(0, 30)}"`); continue }
+        layers.push(r)
+      }
+      if (layers.length > 0) return buildSequentialGraph(layers, errors, warnings)
+    }
+  
+    // ── 2. Build symbol table from __init__ ──
+    // Match self.attr = nn.XXX(...)  — multi-line safe
+    const selfAssignRegex = /self\.(\w+)\s*=\s*(nn\.[A-Za-z0-9_]+\s*\([^;]*?\))\s*(?:\n|$)/g
+    const symbolTable = {}
+    let m
+    while ((m = selfAssignRegex.exec(code)) !== null) {
+      const attrName = m[1]
+      const callStr  = m[2].trim()
+      const r = parsePyTorchLayerCall(callStr, warnings)
+      if (r === null) continue // activation
+      if (r === 'unknown') {
+        const name = callStr.match(/nn\.(\w+)/)?.[1] || attrName
+        warnings.push(`Unrecognised layer "nn.${name}" (self.${attrName}) — added as Unknown.`)
+        symbolTable[attrName] = { layerType: 'Unknown', config: {}, label: name }
+      } else {
+        symbolTable[attrName] = r
+      }
+    }
+  
+    // ── 3. Extract nested custom class names ──
+    const nestedClasses = [...codeString.matchAll(/class\s+(\w+)\s*\(\s*nn\.Module\s*\)/g)]
+      .map(x => x[1])
+    const mainClass = nestedClasses[0]
+    const subClasses = nestedClasses.slice(1)
+    for (const cls of subClasses) {
+      warnings.push(`Nested module class "${cls}(nn.Module)" detected. Sub-module calls are treated as passthrough; expand manually.`)
+    }
+  
+    if (Object.keys(symbolTable).length === 0) {
+      errors.push('No recognised PyTorch layers found (self.X = nn.Y(...)). Paste a class body with __init__ and forward().')
       return { layers: [], edges: [], inputShape: null, errors, warnings }
     }
   
-    return buildSequentialResult(layers, errors, warnings)
+    // ── 4. Extract forward() body ──
+    const fwdMatch = code.match(/def\s+forward\s*\(self[^)]*\)\s*:([\s\S]*?)(?=\n\s{0,4}def\s|\n\s{0,4}class\s|$)/m)
+    const forwardBody = fwdMatch ? fwdMatch[1] : ''
+  
+    if (!forwardBody.trim()) {
+      warnings.push('forward() body is empty or could not be extracted — building linear graph from __init__ order.')
+      const layers = Object.values(symbolTable).filter(l => l.layerType !== 'Unknown')
+      return buildSequentialGraph(layers, errors, warnings)
+    }
+  
+    // ── 5. Trace forward() ──
+    const ops = traceForwardBody(forwardBody, symbolTable, warnings)
+  
+    if (ops.length === 0) {
+      // Fall back to __init__ order
+      warnings.push('forward() trace yielded no ops — building linear graph from __init__ order.')
+      const layers = Object.values(symbolTable)
+      return buildSequentialGraph(layers, errors, warnings)
+    }
+  
+    // ── 6. Build graph ──
+    const inputId = 'input'
+    const inputNode = { id: inputId, type: 'Input', position: { x: 300, y: 30 }, config: {} }
+    const { nodes, edges } = buildGraphFromOps(ops, inputId, warnings)
+  
+    return {
+      layers: [inputNode, ...nodes],
+      edges,
+      inputShape: null,
+      errors,
+      warnings,
+    }
   }
-
-
   
-   let _nodeIdCounter = 1000
+  // ─── TENSORFLOW MAIN PARSER ──────────────────────────────────────────────────
   
-   function nextId() {
-     return `import-${++_nodeIdCounter}`
-   }
-   
-   function buildSequentialResult(layers, errors, warnings) {
-     const nodes = []
-     const edges = []
-   
-     // Input node (always present, position 0)
-     const inputId = 'input'
-     nodes.push({
-       id: inputId,
-       type: 'Input',
-       position: { x: 300, y: 30 },
-       config: {},
-     })
-   
-     let prevId = inputId
-     let yPos = 155
-   
-     for (let i = 0; i < layers.length; i++) {
-       const layer = layers[i]
-       if (!layer || !layer.layerType) continue
-   
-    
-       if (layer.layerType === 'Unknown') {
-         // Don't add to graph — already warned
-         continue
-       }
-   
-       const id = nextId()
-       nodes.push({
-         id,
-         type: layer.layerType,
-         position: { x: 300, y: yPos },
-         config: layer.config || {},
-       })
-   
-       edges.push({
-         id: `e-${prevId}-${id}`,
-         source: prevId,
-         target: id,
-       })
-   
-       prevId = id
-       yPos += 130
-     }
-   
-     return {
-       layers: nodes,  
-       edges,
-       inputShape: null,
-       errors,
-       warnings,
-     }
-   }
-
-   export function parseErrors(codeString) {
+  export function parseTensorFlow(codeString) {
+    const errors = [], warnings = []
+    const code = stripNoise(codeString)
+  
+    // ── 1. Sequential model.add() API ──
+    const addMatches = [...code.matchAll(/model\.add\s*\(\s*([\s\S]*?)\s*\)/g)]
+    if (addMatches.length > 0) {
+      const layers = []
+      for (const m of addMatches) {
+        const r = parseKerasLayerCall(m[1], warnings)
+        if (r === null) continue
+        if (r === 'unknown') { warnings.push(`Unsupported Keras layer: "${m[1].slice(0, 40)}"`); continue }
+        layers.push(r)
+      }
+      if (layers.length > 0) return buildSequentialGraph(layers, errors, warnings)
+    }
+  
+    // ── 2. Sequential([...]) with list ──
+    const seqListMatch = code.match(/Sequential\s*\(\s*\[([\s\S]*?)\]\s*\)/)
+    if (seqListMatch) {
+      const body = seqListMatch[1]
+      const callRegex = /(?:layers\.|tf\.keras\.layers\.)\w+\s*\([^)]*(?:\([^)]*\)[^)]*)*\)/g
+      const calls = body.match(callRegex) || []
+      const layers = []
+      for (const call of calls) {
+        const r = parseKerasLayerCall(call, warnings)
+        if (r === null) continue
+        if (r === 'unknown') continue
+        layers.push(r)
+      }
+      if (layers.length > 0) return buildSequentialGraph(layers, errors, warnings)
+    }
+  
+    // ── 3. Functional API — line-by-line variable tracing ──
+    const lines = code.split('\n').map(l => l.trim()).filter(Boolean)
+    const nodes = []
+    const edges = []
+    const varToId = {}
+    let yPos = 155
+  
+    const inputId = 'input'
+    nodes.push({ id: inputId, type: 'Input', position: { x: 300, y: 30 }, config: {} })
+  
+    // Detect input variable name  e.g. inputs = tf.keras.Input(...)
+    const inputVarMatch = code.match(/(\w+)\s*=\s*(?:tf\.keras\.Input|keras\.Input|Input)\s*\(/)
+    const inputVar = inputVarMatch ? inputVarMatch[1] : 'inputs'
+    varToId[inputVar] = inputId
+  
+    for (const line of lines) {
+      // lhs = layers.XYZ(...)(src) or lhs = layers.Add()([a,b])
+      const funcApiMatch = line.match(/^(\w+)\s*=\s*((?:layers\.|tf\.keras\.layers\.|keras\.layers\.)[^(]+\s*\([^)]*(?:\([^)]*\)[^)]*)*\))\s*\(([^)]*)\)/)
+      if (funcApiMatch) {
+        const [, lhs, layerCall, srcStr] = funcApiMatch
+        const r = parseKerasLayerCall(layerCall, warnings)
+        if (r === null) continue
+        if (r === 'unknown') { warnings.push(`Unknown Keras layer: ${layerCall.slice(0, 40)}`); continue }
+  
+        const nodeId = uid()
+        nodes.push({ id: nodeId, type: r.layerType, position: { x: 300, y: yPos }, config: r.config || {} })
+        yPos += 130
+  
+        // Parse sources — could be [a, b] for merge or just "x"
+        const srcVars = srcStr.replace(/[\[\]]/g, '').split(',').map(v => v.trim()).filter(Boolean)
+        for (const sv of srcVars) {
+          const srcId = varToId[sv]
+          if (srcId) edges.push({ id: `e-${srcId}-${nodeId}`, source: srcId, target: nodeId })
+        }
+  
+        varToId[lhs] = nodeId
+        continue
+      }
+  
+      // Merge via layers.Add()([a, b])
+      const mergeMatch = line.match(/^(\w+)\s*=\s*(?:layers\.Add|layers\.Concatenate)[^(]*\(\)\s*\(\[([^\]]+)\]\)/)
+      if (mergeMatch) {
+        const [, lhs, srcsStr] = mergeMatch
+        const mode = line.includes('Concatenate') ? 'concat' : 'add'
+        const nodeId = uid()
+        nodes.push({ id: nodeId, type: 'Merge', position: { x: 300, y: yPos }, config: { mode } })
+        yPos += 130
+        const srcVars = srcsStr.split(',').map(v => v.trim())
+        for (const sv of srcVars) {
+          const srcId = varToId[sv]
+          if (srcId) edges.push({ id: `e-${srcId}-${nodeId}`, source: srcId, target: nodeId })
+        }
+        varToId[lhs] = nodeId
+        continue
+      }
+    }
+  
+    if (nodes.length <= 1) {
+      errors.push('No recognised Keras/TF layers found. Paste a model using layers.X() or model.add() patterns.')
+      return { layers: [], edges: [], inputShape: null, errors, warnings }
+    }
+  
+    return { layers: nodes, edges, inputShape: null, errors, warnings }
+  }
+  
+  // ─── INPUT SHAPE INFERENCE ────────────────────────────────────────────────────
+  /**
+   * Tries to infer the input shape from code clues:
+   *   torch.randn(...), tf.keras.Input(shape=...), torch.zeros(...)
+   */
+  function inferInputShape(code) {
+    // PyTorch: torch.randn(B, C, H, W) or torch.zeros(...)
+    const randnMatch = code.match(/torch\.(?:randn|zeros|ones)\s*\(\s*([\d\s,]+)\)/)
+    if (randnMatch) {
+      const dims = randnMatch[1].split(',').map(d => parseInt(d.trim())).filter(n => !isNaN(n))
+      if (dims.length >= 2) return dims
+    }
+  
+    // Keras: Input(shape=(H, W, C)) or Input(shape=(seq_len, D))
+    const kerasInputMatch = code.match(/Input\s*\(\s*shape\s*=\s*\(([^)]+)\)/)
+    if (kerasInputMatch) {
+      const dims = kerasInputMatch[1].split(',').map(d => parseInt(d.trim())).filter(n => !isNaN(n))
+      if (dims.length === 3) return [1, dims[2], dims[0], dims[1]] // HWC → NCHW
+      if (dims.length === 2) return [1, dims[1], dims[0]]          // seq NHWC
+    }
+  
+    return null
+  }
+  
+  // ─── DIAGNOSTIC PASS ─────────────────────────────────────────────────────────
+  /**
+   * Post-parse pass that enriches warnings with actionable shape diagnostics.
+   * Called after graph is built and before returning to the store.
+   */
+  function runDiagnosticPass(nodes, edges, warnings) {
+    const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]))
+    const childrenOf = {}
+    const parentsOf = {}
+    for (const n of nodes) { childrenOf[n.id] = []; parentsOf[n.id] = [] }
+    for (const e of edges) {
+      childrenOf[e.source]?.push(e.target)
+      parentsOf[e.target]?.push(e.source)
+    }
+  
+    for (const node of nodes) {
+      const type = node.type
+      const parents = parentsOf[node.id] ?? []
+      const parentNode = parents[0] ? nodeMap[parents[0]] : null
+      const parentType = parentNode?.type
+  
+      // Dense after non-flat layer: likely missing Flatten
+      if (type === 'Dense' && parentType && !['Flatten', 'Dense', 'Dropout', 'LSTM', 'GRU', 'GlobalAvgPool', 'Embedding', 'LayerNorm', 'Input'].includes(parentType)) {
+        warnings.push(`⚠ Dense layer follows ${parentType} — a Flatten or GlobalAvgPool is likely missing. Dense expects 2D input [B, features].`)
+      }
+  
+      // MHA after 2D spatial layer
+      if (type === 'MultiHeadAttention' && parentType && ['Conv2D', 'MaxPool2D', 'AvgPool2D', 'BatchNorm'].includes(parentType)) {
+        warnings.push(`⚠ MultiHeadAttention follows a spatial layer (${parentType}). Attention expects 3D input [B, seq_len, embed_dim]. Consider adding Flatten or Permute.`)
+      }
+  
+      // Conv2D after Flatten or Dense
+      if (type === 'Conv2D' && parentType && ['Flatten', 'Dense'].includes(parentType)) {
+        warnings.push(`⚠ Conv2D follows ${parentType}. Conv2D requires 4D input [B, C, H, W] but received flattened/dense output. Check layer ordering.`)
+      }
+  
+      // LSTM after 2D spatial layer without flatten/permute
+      if (type === 'LSTM' && parentType && ['Conv2D', 'MaxPool2D', 'AvgPool2D'].includes(parentType)) {
+        warnings.push(`⚠ LSTM follows ${parentType}. LSTM expects 3D input [B, seq_len, input_size]. A reshape or flatten may be needed.`)
+      }
+  
+      // Merge with only one parent
+      if (type === 'Merge' && parents.length < 2) {
+        warnings.push(`⚠ Merge node has only ${parents.length} parent(s) — needs 2. Connect the second branch manually.`)
+      }
+    }
+  }
+  
+  // ─── TOP-LEVEL PARSE API ──────────────────────────────────────────────────────
+  
+  export function parseErrors(codeString) {
     const errors = []
-    if (!codeString || !codeString.trim()) {
+    if (!codeString?.trim()) {
       errors.push('No code provided. Paste your PyTorch or Keras model definition.')
       return errors
     }
     const fw = detectFramework(codeString)
     if (fw === 'unknown') {
-      errors.push('Could not detect framework. Make sure your code imports torch or tensorflow/keras.')
+      errors.push('Could not detect framework. Ensure your code imports torch or tensorflow/keras.')
     }
-    // Check for syntax-like issues
-    const openParens = (codeString.match(/\(/g) || []).length
-    const closeParens = (codeString.match(/\)/g) || []).length
-    if (Math.abs(openParens - closeParens) > 10) {
-      errors.push('Paren mismatch detected — code may be incomplete or truncated.')
+    const opens = (codeString.match(/\(/g) || []).length
+    const closes = (codeString.match(/\)/g) || []).length
+    if (Math.abs(opens - closes) > 10) {
+      errors.push('Parenthesis mismatch detected — code may be incomplete or truncated.')
     }
     return errors
   }
-
+  
   export function parseCode(codeString) {
     const quickErrors = parseErrors(codeString)
-    if (quickErrors.length > 0 && !codeString.trim()) {
+    if (!codeString?.trim()) {
       return { nodes: [], edges: [], inputShape: null, errors: quickErrors, warnings: [], framework: 'unknown' }
     }
   
     const framework = detectFramework(codeString)
+    const cleanCode = stripNoise(codeString)
   
     let result
     if (framework === 'tensorflow') {
       result = parseTensorFlow(codeString)
     } else {
-
       result = parsePyTorch(codeString)
     }
   
-
     const nodes = result.layers || []
+    const edges = result.edges || []
+  
+    // Post-parse diagnostics
+    runDiagnosticPass(nodes, edges, result.warnings)
+  
+    // Try to infer input shape from code
+    const inferredShape = inferInputShape(cleanCode)
   
     return {
       nodes,
-      edges: result.edges || [],
-      inputShape: result.inputShape || null,
-      errors: result.errors || [],
+      edges,
+      inputShape: inferredShape || result.inputShape || null,
+      errors: [...quickErrors.filter(e => !result.errors.includes(e)), ...result.errors],
       warnings: result.warnings || [],
       framework,
     }
