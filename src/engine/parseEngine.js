@@ -1,31 +1,8 @@
-/**
- * parseEngine.js — Production-Grade ML Model Analysis Engine v2.0
- *
- * Architecture: Hybrid Static Analysis
- *   1. Tokenise + strip noise (comments, docstrings, type hints)
- *   2. Extract class/module structure (nested nn.Module support)
- *   3. Build a symbol table: self.attr → layer definition
- *   4. Trace the forward() method line-by-line, tracking variable→shape
- *   5. Resolve branches (skip connections, torch.cat, residual adds)
- *   6. Emit a computation graph: nodes + edges + per-node shape annotations
- *   7. Attach actionable diagnostics (shape errors, missing flatten, etc.)
- *
- * Supports:
- *   PyTorch  — nn.Module, nn.Sequential, all common layer types
- *   Keras/TF — Sequential API, Functional API, model.add()
- *
- * New layer types added: AvgPool2D, AdaptiveAvgPool, GlobalAvgPool,
- *   ConvTranspose2D, GRU, ZeroPad2D, Upsample, Softmax (as node)
- */
 
-// ─── UTILITIES ───────────────────────────────────────────────────────────────
 
 function stripNoise(code) {
-    // Remove triple-quoted docstrings
     let c = code.replace(/"""[\s\S]*?"""/g, '').replace(/'''[\s\S]*?'''/g, '')
-    // Remove type annotations  e.g.  def forward(self, x: torch.Tensor) -> torch.Tensor:
     c = c.replace(/:\s*[\w\[\],\s.]+(?=\s*[,)=])/g, '')
-    // Remove inline # comments but preserve newlines
     c = c.replace(/#[^\n]*/g, '')
     return c
   }
@@ -89,8 +66,7 @@ function stripNoise(code) {
   let _uid = 2000
   function uid() { return `p-${++_uid}` }
   
-  // ─── FRAMEWORK DETECTION ─────────────────────────────────────────────────────
-  
+
   export function detectFramework(code) {
     const c = code.toLowerCase()
     const torch = c.includes('import torch') || c.includes('nn.module') ||
@@ -105,12 +81,12 @@ function stripNoise(code) {
     return 'unknown'
   }
   
-  // ─── PYTORCH LAYER PARSER ────────────────────────────────────────────────────
+  
   
   function parsePyTorchLayerCall(s, warnings) {
     const w = warnings
   
-    // ── Convolutions ──
+
     if (s.match(/nn\.Conv2d\s*\(/)) {
       const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
       return {
@@ -153,7 +129,7 @@ function stripNoise(code) {
       }
     }
   
-    // ── Pooling ──
+   
     if (s.match(/nn\.MaxPool2d\s*\(/)) {
       const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
       const ks = resolveNum(k.kernel_size ?? p[0], 2, w, 'MaxPool2D')
@@ -173,12 +149,12 @@ function stripNoise(code) {
       return { layerType: 'AdaptiveAvgPool', config: { outputSize: size } }
     }
   
-    // GlobalAvgPool — common alias for AdaptiveAvgPool(1)
+   
     if (s.match(/nn\.AdaptiveAvgPool2d\s*\(\s*(?:1|\(1\s*,\s*1\))\s*\)/)) {
       return { layerType: 'GlobalAvgPool', config: {} }
     }
   
-    // ── Normalization ──
+   
     if (s.match(/nn\.BatchNorm2d\s*\(/)) {
       const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
       return { layerType: 'BatchNorm', config: { eps: resolveNum(k.eps, 1e-5, w, 'BatchNorm'), momentum: resolveNum(k.momentum, 0.1, w, 'BatchNorm') } }
@@ -198,13 +174,12 @@ function stripNoise(code) {
       return { layerType: 'GroupNorm', config: { numGroups } }
     }
   
-    // ── Regularization ──
+
     if (s.match(/nn\.Dropout2d?\s*\(/)) {
       const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
       return { layerType: 'Dropout', config: { p: resolveNum(k.p ?? p[0], 0.5, w, 'Dropout') } }
     }
   
-    // ── Reshaping ──
     if (s.match(/nn\.Flatten\s*\(/)) {
       const { kwargs: k } = extractLayerArgs(extractArgString(s))
       const startDim = resolveNum(k.start_dim, 1, w, 'Flatten')
@@ -217,8 +192,7 @@ function stripNoise(code) {
       const mode = (k.mode ?? "'nearest'").replace(/['"]/g, '')
       return { layerType: 'Upsample', config: { scaleFactor: scale, mode } }
     }
-  
-    // ── Attention & Sequence ──
+
     if (s.match(/nn\.MultiheadAttention\s*\(/)) {
       const { positional: p, kwargs: k } = extractLayerArgs(extractArgString(s))
       return {
@@ -270,7 +244,7 @@ function stripNoise(code) {
       }
     }
   
-    // ── Activations (skip — no shape change) ──
+ 
     if (s.match(/nn\.(ReLU|GELU|Sigmoid|Tanh|Softmax|LogSoftmax|LeakyReLU|ELU|SiLU|Mish|Hardswish|PReLU|Identity|SELU)\s*\(/)) {
       return null
     }
@@ -278,7 +252,7 @@ function stripNoise(code) {
     return 'unknown'
   }
   
-  // ─── KERAS LAYER PARSER ───────────────────────────────────────────────────────
+
   
   function parseKerasLayerCall(s, warnings) {
     const w = warnings
@@ -391,31 +365,21 @@ function stripNoise(code) {
     return 'unknown'
   }
   
-  // ─── FORWARD-PASS TRACER ─────────────────────────────────────────────────────
-  /**
-   * Traces forward() body line-by-line.
-   * Builds a variable→layer map and detects:
-   *   - view/reshape/flatten calls on tensors
-   *   - torch.cat / tensor addition (skip connections)
-   *   - self.layer(x) patterns  (single or chained)
-   *   - x = x.permute(...)  pattern
-   *   - Nested sequential blocks via self.block(x)
-   */
   function traceForwardBody(forwardBody, symbolTable, warnings) {
-    // Ordered list of {varOut, layerRef, parents, op, args}
+  
     const ops = []
     const lines = forwardBody.split('\n').map(l => l.trim()).filter(Boolean)
   
     for (const line of lines) {
-      // ── Skip pure return / assert / print lines ──
+    
       if (/^return\s/.test(line) || /^assert\s/.test(line) || /^print\s/.test(line)) continue
   
-      // ── Assignment lines: lhs = rhs ──
+    
       const assignMatch = line.match(/^(\w+)\s*=\s*(.+)$/)
       if (!assignMatch) continue
       const [, lhs, rhs] = assignMatch
   
-      // ─ torch.cat([a, b, ...], dim=N) ─
+   
       const catMatch = rhs.match(/torch\.cat\s*\(\s*\[([^\]]+)\]\s*(?:,\s*dim\s*=\s*(-?\d+))?\s*\)/)
       if (catMatch) {
         const parents = catMatch[1].split(',').map(v => v.trim()).filter(Boolean)
@@ -424,14 +388,14 @@ function stripNoise(code) {
         continue
       }
   
-      // ─ element-wise add: a + b ─
+
       const addMatch = rhs.match(/^(\w+)\s*\+\s*(\w+)$/)
       if (addMatch) {
         ops.push({ varOut: lhs, op: 'add', parents: [addMatch[1], addMatch[2]] })
         continue
       }
   
-      // ─ .view(...) / .reshape(...) / .flatten(...) ─
+ 
       const viewMatch = rhs.match(/^(\w+)\.(?:view|reshape)\s*\((.+)\)$/)
       if (viewMatch) {
         const dims = splitArgs(viewMatch[2]).map(d => resolveNum(d, null))
@@ -446,7 +410,7 @@ function stripNoise(code) {
         continue
       }
   
-      // ─ .permute(...) ─
+   
       const permuteMatch = rhs.match(/^(\w+)\.permute\s*\((.+)\)/)
       if (permuteMatch) {
         const perm = splitArgs(permuteMatch[2]).map(d => parseInt(d)).filter(n => !isNaN(n))
@@ -454,7 +418,7 @@ function stripNoise(code) {
         continue
       }
   
-      // ─ .squeeze() / .unsqueeze(dim) ─
+ 
       const squeezeMatch = rhs.match(/^(\w+)\.(squeeze|unsqueeze)\s*\((.*)?\)/)
       if (squeezeMatch) {
         const dim = resolveNum(squeezeMatch[3], null)
@@ -462,7 +426,7 @@ function stripNoise(code) {
         continue
       }
   
-      // ─ .transpose(a, b) ─
+ 
       const transposeMatch = rhs.match(/^(\w+)\.transpose\s*\((.+)\)/)
       if (transposeMatch) {
         const [da, db] = splitArgs(transposeMatch[2]).map(d => parseInt(d))
@@ -470,7 +434,7 @@ function stripNoise(code) {
         continue
       }
   
-      // ─ self.layer(x) or self.layer(x, x, x) ─
+    
       const selfCallMatch = rhs.match(/^self\.(\w+)\s*\((.+)\)$/)
       if (selfCallMatch) {
         const attrName = selfCallMatch[1]
@@ -486,14 +450,14 @@ function stripNoise(code) {
             parents: [argVars[0]].filter(Boolean),
           })
         } else {
-          // It's a sub-module call — treat as passthrough with warning
+    
           warnings.push(`self.${attrName} called in forward() but not found in __init__ symbol table. It may be a sub-module — adding as Unknown.`)
           ops.push({ varOut: lhs, op: 'unknown', layerAttr: attrName, parents: [argVars[0]].filter(Boolean) })
         }
         continue
       }
   
-      // ─ MHA tuple unpack: out, _ = self.attn(q, k, v) ─
+  
       const mhaTupleMatch = line.match(/^(\w+)\s*,\s*_\s*=\s*self\.(\w+)\s*\((.+)\)$/)
       if (mhaTupleMatch) {
         const [, outVar, attrName, argStr] = mhaTupleMatch
@@ -515,21 +479,20 @@ function stripNoise(code) {
         continue
       }
   
-      // ─ F.relu(x), F.softmax(x, dim=...) — skip (shape passthrough) ─
+    
       if (/^[Ff]\.(?:relu|gelu|sigmoid|tanh|softmax|log_softmax|dropout|leaky_relu|elu|selu|hardswish|mish)\s*\(/.test(rhs)) {
         const fMatch = rhs.match(/^[Ff]\.\w+\s*\((\w+)/)
         if (fMatch) ops.push({ varOut: lhs, op: 'passthrough', parents: [fMatch[1]] })
         continue
       }
   
-      // ─ x.mean(dim=...) / x.sum(dim=...) — shape-changing ─
+    
       const meanMatch = rhs.match(/^(\w+)\.(mean|sum|max|min)\s*\(\s*dim\s*=\s*(-?\d+)/)
       if (meanMatch) {
         ops.push({ varOut: lhs, op: 'reduce', parents: [meanMatch[1]], dim: parseInt(meanMatch[3]), keepdim: rhs.includes('keepdim=True') })
         continue
       }
-  
-      // ─ Direct variable copy: y = x ─
+ 
       const copyMatch = rhs.match(/^(\w+)$/)
       if (copyMatch && !/^\d/.test(copyMatch[1])) {
         ops.push({ varOut: lhs, op: 'passthrough', parents: [copyMatch[1]] })
@@ -538,12 +501,6 @@ function stripNoise(code) {
   
     return ops
   }
-  
-  // ─── GRAPH BUILDER FROM OPS ──────────────────────────────────────────────────
-  /**
-   * Takes the ops trace + symbol table and builds nodes/edges.
-   * Handles the mapping from variable names to node IDs.
-   */
   function buildGraphFromOps(ops, inputNodeId, warnings) {
     const nodes = []
     const edges = []
@@ -619,7 +576,7 @@ function stripNoise(code) {
     return { nodes, edges }
   }
   
-  // ─── SEQUENTIAL BUILDER ──────────────────────────────────────────────────────
+ 
   
   function buildSequentialGraph(layers, errors, warnings) {
     const nodes = [], edges = []
@@ -643,9 +600,7 @@ function stripNoise(code) {
   export function parsePyTorch(codeString) {
     const errors = [], warnings = []
     const code = stripNoise(codeString)
-  
-    // ── 1. Try nn.Sequential first ──
-    // Matches multi-line Sequential with proper depth-tracking
+
     const seqMatch = code.match(/nn\.Sequential\s*\(([\s\S]*?)\n\s*\)/)
     if (seqMatch) {
       const body = seqMatch[1]
@@ -661,8 +616,6 @@ function stripNoise(code) {
       if (layers.length > 0) return buildSequentialGraph(layers, errors, warnings)
     }
   
-    // ── 2. Build symbol table from __init__ ──
-    // Match self.attr = nn.XXX(...)  — multi-line safe
     const selfAssignRegex = /self\.(\w+)\s*=\s*(nn\.[A-Za-z0-9_]+\s*\([^;]*?\))\s*(?:\n|$)/g
     const symbolTable = {}
     let m
@@ -680,7 +633,7 @@ function stripNoise(code) {
       }
     }
   
-    // ── 3. Extract nested custom class names ──
+   
     const nestedClasses = [...codeString.matchAll(/class\s+(\w+)\s*\(\s*nn\.Module\s*\)/g)]
       .map(x => x[1])
     const mainClass = nestedClasses[0]
@@ -694,7 +647,7 @@ function stripNoise(code) {
       return { layers: [], edges: [], inputShape: null, errors, warnings }
     }
   
-    // ── 4. Extract forward() body ──
+  
     const fwdMatch = code.match(/def\s+forward\s*\(self[^)]*\)\s*:([\s\S]*?)(?=\n\s{0,4}def\s|\n\s{0,4}class\s|$)/m)
     const forwardBody = fwdMatch ? fwdMatch[1] : ''
   
@@ -704,17 +657,17 @@ function stripNoise(code) {
       return buildSequentialGraph(layers, errors, warnings)
     }
   
-    // ── 5. Trace forward() ──
+   
     const ops = traceForwardBody(forwardBody, symbolTable, warnings)
   
     if (ops.length === 0) {
-      // Fall back to __init__ order
+    
       warnings.push('forward() trace yielded no ops — building linear graph from __init__ order.')
       const layers = Object.values(symbolTable)
       return buildSequentialGraph(layers, errors, warnings)
     }
   
-    // ── 6. Build graph ──
+   
     const inputId = 'input'
     const inputNode = { id: inputId, type: 'Input', position: { x: 300, y: 30 }, config: {} }
     const { nodes, edges } = buildGraphFromOps(ops, inputId, warnings)
@@ -728,13 +681,13 @@ function stripNoise(code) {
     }
   }
   
-  // ─── TENSORFLOW MAIN PARSER ──────────────────────────────────────────────────
+
   
   export function parseTensorFlow(codeString) {
     const errors = [], warnings = []
     const code = stripNoise(codeString)
   
-    // ── 1. Sequential model.add() API ──
+  
     const addMatches = [...code.matchAll(/model\.add\s*\(\s*([\s\S]*?)\s*\)/g)]
     if (addMatches.length > 0) {
       const layers = []
@@ -747,7 +700,7 @@ function stripNoise(code) {
       if (layers.length > 0) return buildSequentialGraph(layers, errors, warnings)
     }
   
-    // ── 2. Sequential([...]) with list ──
+
     const seqListMatch = code.match(/Sequential\s*\(\s*\[([\s\S]*?)\]\s*\)/)
     if (seqListMatch) {
       const body = seqListMatch[1]
@@ -763,7 +716,7 @@ function stripNoise(code) {
       if (layers.length > 0) return buildSequentialGraph(layers, errors, warnings)
     }
   
-    // ── 3. Functional API — line-by-line variable tracing ──
+  
     const lines = code.split('\n').map(l => l.trim()).filter(Boolean)
     const nodes = []
     const edges = []
@@ -773,13 +726,13 @@ function stripNoise(code) {
     const inputId = 'input'
     nodes.push({ id: inputId, type: 'Input', position: { x: 300, y: 30 }, config: {} })
   
-    // Detect input variable name  e.g. inputs = tf.keras.Input(...)
+   
     const inputVarMatch = code.match(/(\w+)\s*=\s*(?:tf\.keras\.Input|keras\.Input|Input)\s*\(/)
     const inputVar = inputVarMatch ? inputVarMatch[1] : 'inputs'
     varToId[inputVar] = inputId
   
     for (const line of lines) {
-      // lhs = layers.XYZ(...)(src) or lhs = layers.Add()([a,b])
+
       const funcApiMatch = line.match(/^(\w+)\s*=\s*((?:layers\.|tf\.keras\.layers\.|keras\.layers\.)[^(]+\s*\([^)]*(?:\([^)]*\)[^)]*)*\))\s*\(([^)]*)\)/)
       if (funcApiMatch) {
         const [, lhs, layerCall, srcStr] = funcApiMatch
@@ -791,7 +744,7 @@ function stripNoise(code) {
         nodes.push({ id: nodeId, type: r.layerType, position: { x: 300, y: yPos }, config: r.config || {} })
         yPos += 130
   
-        // Parse sources — could be [a, b] for merge or just "x"
+      
         const srcVars = srcStr.replace(/[\[\]]/g, '').split(',').map(v => v.trim()).filter(Boolean)
         for (const sv of srcVars) {
           const srcId = varToId[sv]
@@ -802,7 +755,6 @@ function stripNoise(code) {
         continue
       }
   
-      // Merge via layers.Add()([a, b])
       const mergeMatch = line.match(/^(\w+)\s*=\s*(?:layers\.Add|layers\.Concatenate)[^(]*\(\)\s*\(\[([^\]]+)\]\)/)
       if (mergeMatch) {
         const [, lhs, srcsStr] = mergeMatch
@@ -827,21 +779,16 @@ function stripNoise(code) {
   
     return { layers: nodes, edges, inputShape: null, errors, warnings }
   }
-  
-  // ─── INPUT SHAPE INFERENCE ────────────────────────────────────────────────────
-  /**
-   * Tries to infer the input shape from code clues:
-   *   torch.randn(...), tf.keras.Input(shape=...), torch.zeros(...)
-   */
+
   function inferInputShape(code) {
-    // PyTorch: torch.randn(B, C, H, W) or torch.zeros(...)
+   
     const randnMatch = code.match(/torch\.(?:randn|zeros|ones)\s*\(\s*([\d\s,]+)\)/)
     if (randnMatch) {
       const dims = randnMatch[1].split(',').map(d => parseInt(d.trim())).filter(n => !isNaN(n))
       if (dims.length >= 2) return dims
     }
   
-    // Keras: Input(shape=(H, W, C)) or Input(shape=(seq_len, D))
+   
     const kerasInputMatch = code.match(/Input\s*\(\s*shape\s*=\s*\(([^)]+)\)/)
     if (kerasInputMatch) {
       const dims = kerasInputMatch[1].split(',').map(d => parseInt(d.trim())).filter(n => !isNaN(n))
@@ -852,11 +799,6 @@ function stripNoise(code) {
     return null
   }
   
-  // ─── DIAGNOSTIC PASS ─────────────────────────────────────────────────────────
-  /**
-   * Post-parse pass that enriches warnings with actionable shape diagnostics.
-   * Called after graph is built and before returning to the store.
-   */
   function runDiagnosticPass(nodes, edges, warnings) {
     const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]))
     const childrenOf = {}
@@ -900,7 +842,7 @@ function stripNoise(code) {
     }
   }
   
-  // ─── TOP-LEVEL PARSE API ──────────────────────────────────────────────────────
+  
   
   export function parseErrors(codeString) {
     const errors = []
@@ -939,10 +881,10 @@ function stripNoise(code) {
     const nodes = result.layers || []
     const edges = result.edges || []
   
-    // Post-parse diagnostics
+
     runDiagnosticPass(nodes, edges, result.warnings)
   
-    // Try to infer input shape from code
+   
     const inferredShape = inferInputShape(cleanCode)
   
     return {
