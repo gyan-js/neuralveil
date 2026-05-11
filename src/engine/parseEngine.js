@@ -562,3 +562,51 @@ function stripCommentsAndDocstrings(code) {
        warnings,
      }
    }
+
+   export function parseErrors(codeString) {
+    const errors = []
+    if (!codeString || !codeString.trim()) {
+      errors.push('No code provided. Paste your PyTorch or Keras model definition.')
+      return errors
+    }
+    const fw = detectFramework(codeString)
+    if (fw === 'unknown') {
+      errors.push('Could not detect framework. Make sure your code imports torch or tensorflow/keras.')
+    }
+    // Check for syntax-like issues
+    const openParens = (codeString.match(/\(/g) || []).length
+    const closeParens = (codeString.match(/\)/g) || []).length
+    if (Math.abs(openParens - closeParens) > 10) {
+      errors.push('Paren mismatch detected — code may be incomplete or truncated.')
+    }
+    return errors
+  }
+
+  export function parseCode(codeString) {
+    const quickErrors = parseErrors(codeString)
+    if (quickErrors.length > 0 && !codeString.trim()) {
+      return { nodes: [], edges: [], inputShape: null, errors: quickErrors, warnings: [], framework: 'unknown' }
+    }
+  
+    const framework = detectFramework(codeString)
+  
+    let result
+    if (framework === 'tensorflow') {
+      result = parseTensorFlow(codeString)
+    } else {
+
+      result = parsePyTorch(codeString)
+    }
+  
+
+    const nodes = result.layers || []
+  
+    return {
+      nodes,
+      edges: result.edges || [],
+      inputShape: result.inputShape || null,
+      errors: result.errors || [],
+      warnings: result.warnings || [],
+      framework,
+    }
+  }
