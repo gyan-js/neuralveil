@@ -254,7 +254,7 @@ export default function LayerPalette() {
       flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      {/* Header */}
+    
       <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid rgba(0,229,255,0.06)' }}>
         <span style={{
           fontFamily: 'Syne', fontWeight: 700, fontSize: 10,
