@@ -420,3 +420,145 @@ function stripCommentsAndDocstrings(code) {
   
     return 'unknown'
   }
+
+  export function parseTensorFlow(codeString) {
+    const errors = []
+    const warnings = []
+    const layers = []
+  
+    const code = stripCommentsAndDocstrings(codeString)
+  
+    
+    const addRegex = /model\.add\s*\(\s*(.*?)\s*\)/g
+    const addMatches = [...code.matchAll(addRegex)]
+  
+    if (addMatches.length > 0) {
+      for (const m of addMatches) {
+        const call = m[1]
+        const result = parseKerasLayerCall(call, warnings)
+        if (result === null) continue
+        if (result === 'unknown') {
+          const name = call.match(/layers\.(\w+)/)?.[1] || 'Unknown'
+          warnings.push(`Unsupported Keras layer "${name}" — imported as Unknown node.`)
+          layers.push({ layerType: 'Unknown', config: {}, label: name })
+        } else {
+          layers.push(result)
+        }
+      }
+      if (layers.length > 0) return buildSequentialResult(layers, errors, warnings)
+    }
+  
+
+    const funcRegex = /(\w+)\s*=\s*((?:layers\.|tf\.keras\.layers\.)\w+(?:\s*\([^)]*\))?)\s*\(/g
+
+    const lineRegex = /(\w+)\s*=\s*((?:layers\.|tf\.keras\.layers\.)[\w.]+\s*\([^)]*(?:\([^)]*\)[^)]*)*\))\s*(?:\(([^)]*)\))?/g
+  
+  
+    const kerasLayerRegex = /(?:layers\.|tf\.keras\.layers\.)(?:Bidirectional\s*\()?[\w]+\s*\([^;)]*(?:\([^)]*\)[^;)]*)*\)/g
+    const kerasCalls = code.match(kerasLayerRegex) || []
+  
+    for (const call of kerasCalls) {
+      const result = parseKerasLayerCall(call, warnings)
+      if (result === null) continue
+      if (result === 'unknown') {
+        const name = call.match(/layers\.(\w+)/)?.[1] || 'Unknown'
+        warnings.push(`Unsupported Keras layer "${name}" — imported as Unknown node.`)
+        layers.push({ layerType: 'Unknown', config: {}, label: name })
+      } else {
+        layers.push(result)
+      }
+    }
+  
+   
+    const addMergeRegex = /layers\.Add\s*\(\)\s*\(\[([^\]]+)\]\)/g
+    const catMergeRegex = /layers\.Concatenate[^(]*\(\)[^(]*\(\[([^\]]+)\]\)/g
+
+  
+    if (layers.length === 0) {
+   
+      const seqMatch = code.match(/Sequential\s*\(\s*\[([\s\S]*?)\]\s*\)/)
+      if (seqMatch) {
+        const body = seqMatch[1]
+        const calls = body.match(/(?:layers\.|tf\.keras\.layers\.)\w+\s*\([^)]*\)/g) || []
+        for (const call of calls) {
+          const result = parseKerasLayerCall(call, warnings)
+          if (result === null) continue
+          if (result === 'unknown') {
+            const name = call.match(/layers\.(\w+)/)?.[1] || 'Unknown'
+            warnings.push(`Unsupported Keras layer "${name}" — imported as Unknown node.`)
+            layers.push({ layerType: 'Unknown', config: {}, label: name })
+          } else {
+            layers.push(result)
+          }
+        }
+      }
+    }
+  
+    if (layers.length === 0) {
+      errors.push('No recognized Keras/TF layers found. Paste a model using layers.X() or model.add() patterns.')
+      return { layers: [], edges: [], inputShape: null, errors, warnings }
+    }
+  
+    return buildSequentialResult(layers, errors, warnings)
+  }
+
+
+  
+   let _nodeIdCounter = 1000
+  
+   function nextId() {
+     return `import-${++_nodeIdCounter}`
+   }
+   
+   function buildSequentialResult(layers, errors, warnings) {
+     const nodes = []
+     const edges = []
+   
+     // Input node (always present, position 0)
+     const inputId = 'input'
+     nodes.push({
+       id: inputId,
+       type: 'Input',
+       position: { x: 300, y: 30 },
+       config: {},
+     })
+   
+     let prevId = inputId
+     let yPos = 155
+   
+     for (let i = 0; i < layers.length; i++) {
+       const layer = layers[i]
+       if (!layer || !layer.layerType) continue
+   
+    
+       if (layer.layerType === 'Unknown') {
+         // Don't add to graph — already warned
+         continue
+       }
+   
+       const id = nextId()
+       nodes.push({
+         id,
+         type: layer.layerType,
+         position: { x: 300, y: yPos },
+         config: layer.config || {},
+       })
+   
+       edges.push({
+         id: `e-${prevId}-${id}`,
+         source: prevId,
+         target: id,
+       })
+   
+       prevId = id
+       yPos += 130
+     }
+   
+     return {
+       layers: nodes,  
+       edges,
+       inputShape: null,
+       errors,
+       warnings,
+     }
+   }
