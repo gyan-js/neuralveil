@@ -1,13 +1,11 @@
 import { useGraphStore } from '../store/useGraphStore.js'
 import { exportToPyTorch, exportToKeras, exportToJSON } from '../engine/exportEngine.js'
-import { Download, Save, Upload, Code2, Link, ChevronDown, Cpu, Layers } from 'lucide-react'
+import { Download, Save, Upload, Code2, Link, ChevronDown, Cpu, Layers, FileCode2 } from 'lucide-react'
 import { useRef, useState, useCallback, useEffect } from 'react'
 
 import '../styles/globals.css'
 
-// ───!! IMPORTANT !!! ─────────────────────────────────────────────────────────────
-// Inline preset definitions — no file-system import needed in the browser.
-// These are the same graphs as  backup are in  the JSON files in src/presets/.
+// ─── PRESETS ──────────────────────────────────────────────────────────────────
 
 const PRESETS = [
   {
@@ -182,14 +180,14 @@ function FormatToggle() {
   )
 }
 
+// ─── PRESETS DROPDOWN ─────────────────────────────────────────────────────────
 
 function PresetsDropdown() {
   const loadFromJSON = useGraphStore(s => s.loadFromJSON)
   const [open, setOpen] = useState(false)
-  const [loaded, setLoaded] = useState(null)   // id of last-loaded preset (for flash feedback)
+  const [loaded, setLoaded] = useState(null)
   const ref = useRef(null)
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -232,10 +230,7 @@ function PresetsDropdown() {
           overflow: 'hidden',
           boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 20px rgba(0,229,255,0.06)',
         }}>
-          <div style={{
-            padding: '10px 14px 8px',
-            borderBottom: '1px solid rgba(0,229,255,0.07)',
-          }}>
+          <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid rgba(0,229,255,0.07)' }}>
             <span style={{
               fontFamily: 'Syne', fontWeight: 700, fontSize: 9,
               color: '#00E5FF', letterSpacing: '0.18em', textTransform: 'uppercase',
@@ -306,8 +301,8 @@ function PresetsDropdown() {
 // ─── EXPORT MODAL ─────────────────────────────────────────────────────────────
 
 function ExportModal({ onClose, nodes, edges, inputShape }) {
-  const [tab, setTab] = useState('pytorch')   // 'pytorch' | 'keras'
-  const [copyPhase, setCopyPhase] = useState(0) // 0=idle 1=analyzing 2=generating 3=done
+  const [tab, setTab] = useState('pytorch')
+  const [copyPhase, setCopyPhase] = useState(0)
 
   const code = tab === 'pytorch'
     ? exportToPyTorch(nodes, edges, inputShape)
@@ -338,11 +333,7 @@ function ExportModal({ onClose, nodes, edges, inputShape }) {
   return (
     <div className="export-modal-backdrop" onClick={onClose}>
       <div className="export-modal" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div style={{
-          padding: '14px 20px 0',
-          borderBottom: '1px solid rgba(0,229,255,0.08)',
-        }}>
+        <div style={{ padding: '14px 20px 0', borderBottom: '1px solid rgba(0,229,255,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Code2 size={16} color="#00E5FF" />
@@ -362,19 +353,11 @@ function ExportModal({ onClose, nodes, edges, inputShape }) {
               </button>
             </div>
           </div>
-
-        
           <div style={{ display: 'flex', gap: 4 }}>
-            <button style={tabStyle('pytorch')} onClick={() => setTab('pytorch')}>
-              PyTorch
-            </button>
-            <button style={tabStyle('keras')} onClick={() => setTab('keras')}>
-              Keras / TF
-            </button>
+            <button style={tabStyle('pytorch')} onClick={() => setTab('pytorch')}>PyTorch</button>
+            <button style={tabStyle('keras')} onClick={() => setTab('keras')}>Keras / TF</button>
           </div>
         </div>
-
-  
         <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
           <pre className="code-area">{code}</pre>
         </div>
@@ -383,11 +366,11 @@ function ExportModal({ onClose, nodes, edges, inputShape }) {
   )
 }
 
-
+// ─── COPY LINK BUTTON ─────────────────────────────────────────────────────────
 
 function CopyLinkButton() {
   const exportToURL = useGraphStore(s => s.exportToURL)
-  const [phase, setPhase] = useState(0) // 0=idle 1=done
+  const [phase, setPhase] = useState(0)
 
   const handleCopy = () => {
     const url = exportToURL()
@@ -395,7 +378,6 @@ function CopyLinkButton() {
       setPhase(1)
       setTimeout(() => setPhase(0), 2200)
     }).catch(() => {
-      // Fallback: prompt the user
       window.prompt('Copy this URL:', url)
     })
   }
@@ -413,7 +395,62 @@ function CopyLinkButton() {
   )
 }
 
-// ─── TOPBAR ───────────────────────────────────────────────────────────────────
+
+function ImportCodeButton() {
+  const openCodeImport  = useGraphStore(s => s.openCodeImport)
+  const importWarnings  = useGraphStore(s => s.importWarnings)
+  const [justImported, setJustImported] = useState(false)
+
+  
+  useEffect(() => {
+    if (importWarnings.length > 0 || (importWarnings.length === 0 && justImported)) {
+    
+    }
+  }, [importWarnings])
+
+  return (
+    <button
+      className="btn-ghost"
+      onClick={openCodeImport}
+      title="Import graph from PyTorch or Keras code"
+      style={{
+        gap: 6,
+        borderColor: 'rgba(57,255,20,0.35)',
+        color: '#39FF14',
+        position: 'relative',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = 'rgba(57,255,20,0.7)'
+        e.currentTarget.style.background = 'rgba(57,255,20,0.07)'
+        e.currentTarget.style.boxShadow = '0 0 14px rgba(57,255,20,0.12)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = 'rgba(57,255,20,0.35)'
+        e.currentTarget.style.background = 'transparent'
+        e.currentTarget.style.boxShadow = 'none'
+      }}
+    >
+      <FileCode2 size={12} />
+      Import Code
+      {/* NEW badge */}
+      <span style={{
+        position: 'absolute',
+        top: -6, right: -6,
+        background: '#39FF14',
+        color: '#000',
+        fontFamily: 'Syne', fontSize: 6, fontWeight: 800,
+        letterSpacing: '0.08em',
+        padding: '1px 4px',
+        borderRadius: 3,
+        lineHeight: 1.4,
+      }}>
+        NEW
+      </span>
+    </button>
+  )
+}
+
+
 
 export default function TopBar() {
   const nodes = useGraphStore(s => s.nodes)
@@ -493,7 +530,7 @@ export default function TopBar() {
               fontFamily: 'Syne', fontWeight: 400, fontSize: 15,
               color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginLeft: 4,
             }}>
-              v2.0.3
+              v3.0.1
             </span>
           </div>
         </div>
@@ -504,10 +541,12 @@ export default function TopBar() {
 
         <div style={{ flex: 1 }} />
 
-        
         <PresetsDropdown />
 
         <div style={{ width: 1, height: 20, background: 'rgba(0,229,255,0.07)' }} />
+
+       
+        <ImportCodeButton />
 
         <button className="btn-ghost" onClick={() => setShowExport(true)}>
           <Code2 size={12} />
