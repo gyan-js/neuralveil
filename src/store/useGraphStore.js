@@ -1,3 +1,4 @@
+
 import { create } from 'zustand'
 import { addEdge, applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import { propagateGraph, countParams } from '../engine/shapeEngine.js'
@@ -80,10 +81,6 @@ function getNodeType(layerType) {
   return 'layerNode'
 }
 
-
-//  Serialize current graph state → compressed base64 → URL hash.
- // now it will return the full shareable URL string.
- 
 function serializeToURL(nodes, edges, inputShape, format) {
   const payload = {
     v: '1',
@@ -103,7 +100,6 @@ function serializeToURL(nodes, edges, inputShape, format) {
   return url
 }
 
-
 function deserializeFromURL() {
   try {
     const hash = window.location.hash.slice(1)
@@ -115,8 +111,6 @@ function deserializeFromURL() {
     return null
   }
 }
-
-
 
 export const useGraphStore = create((set, get) => {
 
@@ -154,7 +148,11 @@ export const useGraphStore = create((set, get) => {
     shapeResults: initialResults,
     rippleNodes: new Set(),
 
-  
+    importErrors: [],
+    importWarnings: [],
+    importFramework: null,
+    showCodeImport: false,
+
     onNodesChange: (changes) => {
       set(state => ({ nodes: applyNodeChanges(changes, state.nodes) }))
     },
@@ -173,7 +171,6 @@ export const useGraphStore = create((set, get) => {
       })
     },
 
-   
     addNode: (layerType, position) => {
       nodeCounter++
       const id = `node-${nodeCounter}`
@@ -236,18 +233,14 @@ export const useGraphStore = create((set, get) => {
     selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
     deselectNode: () => set({ selectedNodeId: null }),
 
-
-     
     exportToURL: () => {
       const { nodes, edges, inputShape, format } = get()
       const url = serializeToURL(nodes, edges, inputShape, format)
-      // updating  the browser hash without a page reload
       const hash = url.split('#')[1]
       window.history.replaceState(null, '', `#${hash}`)
       return url
     },
 
-   
     loadFromJSON: (json) => {
       try {
         const data = typeof json === 'string' ? JSON.parse(json) : json
@@ -261,7 +254,6 @@ export const useGraphStore = create((set, get) => {
         const edges = data.edges.map(e => ({ ...e, type: 'shapeEdge' }))
         const inputShape = data.inputShape || DEFAULT_INPUT_SHAPE
         const results = propagateGraph(nodes, edges, inputShape)
-       
         window.history.replaceState(null, '', window.location.pathname)
         set({ nodes, edges, inputShape, format: data.format || 'NCHW', shapeResults: results, selectedNodeId: null })
       } catch (e) {
@@ -269,7 +261,59 @@ export const useGraphStore = create((set, get) => {
       }
     },
 
+
+    openCodeImport: () => set({ showCodeImport: true }),
+    closeCodeImport: () => set({ showCodeImport: false, importErrors: [], importWarnings: [] }),
+
+    detectFrameworkLive: async (codeString) => {
+      const { detectFramework } = await import('../engine/parseEngine.js')
+      const fw = detectFramework(codeString || '')
+      set({ importFramework: fw === 'unknown' ? null : fw })
+    },
+
+    importFromCode: async (codeString) => {
+      const { parseCode } = await import('../engine/parseEngine.js')
+
+      if (!codeString || !codeString.trim()) {
+        set({ importErrors: ['No code provided. Paste your PyTorch or Keras model.'], importWarnings: [] })
+        return
+      }
+
+      const result = parseCode(codeString)
+
+      if (result.errors.length > 0 && result.nodes.length === 0) {
+        set({
+          importErrors: result.errors,
+          importWarnings: result.warnings,
+          importFramework: result.framework,
+        })
+        return
+      }
+
+
+      const json = {
+        version: '1.0',
+        format: get().format,
+        inputShape: result.inputShape || get().inputShape,
+        nodes: result.nodes,
+        edges: result.edges,
+      }
+
+      get().loadFromJSON(json)
+
+      set({
+        showCodeImport: false,
+        importErrors: [],
+        importWarnings: result.warnings,
+        importFramework: result.framework,
+      })
+
     
+      if (result.warnings.length > 0) {
+        setTimeout(() => set({ importWarnings: [] }), 8000)
+      }
+    },
+
     getTotalParams: () => {
       const { nodes, shapeResults } = get()
       let total = 0
