@@ -177,3 +177,143 @@ function stripCommentsAndDocstrings(code) {
     return 'unknown'
   }
   
+  function detectSkipConnections(forwardBody) {
+    const skips = []
+  
+    const addPatterns = [...forwardBody.matchAll(/(\w+)\s*=\s*(\w+)\s*\+\s*(\w+)/g)]
+    for (const m of addPatterns) {
+      skips.push({ type: 'add', varNames: [m[2], m[3]], assignTo: m[1] })
+    }
+  
+
+    const catPatterns = [...forwardBody.matchAll(/torch\.cat\s*\(\s*\[([^\]]+)\]/g)]
+    for (const m of catPatterns) {
+      const vars = m[1].split(',').map(v => v.trim()).filter(Boolean)
+      skips.push({ type: 'concat', varNames: vars })
+    }
+  
+    return skips
+  }
+  
+  export function parsePyTorch(codeString) {
+    const errors = []
+    const warnings = []
+    const layers = []
+  
+    const code = stripCommentsAndDocstrings(codeString)
+  
+
+    const seqMatch = code.match(/nn\.Sequential\s*\(([\s\S]*?)\)(?=\s*$|\s*\n|\s*#|\s*self)/m)
+    if (seqMatch) {
+      const body = seqMatch[1]
+ 
+      const layerCallRegex = /nn\.\w+\s*\([^()]*(?:\([^()]*\)[^()]*)*\)/g
+      const calls = body.match(layerCallRegex) || []
+      for (const call of calls) {
+        const result = parsePyTorchLayerCall(call, warnings)
+        if (result === null) continue // activation, skip
+        if (result === 'unknown') {
+          const name = call.match(/nn\.(\w+)/)?.[1] || call
+          warnings.push(`Unsupported layer "${name}" — imported as Unknown node.`)
+          layers.push({ layerType: 'Unknown', config: {}, label: name })
+        } else {
+          layers.push(result)
+        }
+      }
+      if (layers.length > 0) {
+        return buildSequentialResult(layers, errors, warnings)
+      }
+    }
+  
+  
+    const selfAssignRegex = /self\.(\w+)\s*=\s*(nn\.\w+\s*\([^;]*?\))\s*(?:\n|$)/g
+    const selfLayers = []
+    const selfNameMap = {} 
+    let m
+    while ((m = selfAssignRegex.exec(code)) !== null) {
+      const attrName = m[1]
+      const callStr  = m[2]
+      const result = parsePyTorchLayerCall(callStr, warnings)
+      if (result === null) continue
+      if (result === 'unknown') {
+        const name = callStr.match(/nn\.(\w+)/)?.[1] || attrName
+        warnings.push(`Unsupported layer "${name}" (self.${attrName}) — imported as Unknown node.`)
+        selfNameMap[attrName] = selfLayers.length
+        selfLayers.push({ layerType: 'Unknown', config: {}, label: name })
+      } else {
+        selfNameMap[attrName] = selfLayers.length
+        selfLayers.push({ ...result, _attrName: attrName })
+      }
+    }
+  
+   
+    const customClassRegex = /class\s+(\w+)\s*\(\s*nn\.Module\s*\)/g
+    const knownClass = codeString.match(/class\s+(\w+)\s*\(\s*nn\.Module\s*\)/)?.[1]
+    const customClasses = [...codeString.matchAll(/class\s+(\w+)\s*\(\s*nn\.Module\s*\)/g)]
+      .map(x => x[1])
+      .filter(name => name !== knownClass)
+    for (const cls of customClasses) {
+      warnings.push(`Custom layer class "${cls}(nn.Module)" detected — imported as Unknown node.`)
+      selfLayers.push({ layerType: 'Unknown', config: {}, label: cls })
+    }
+  
+  
+    const forwardMatch = code.match(/def\s+forward\s*\(self[^)]*\)\s*:([\s\S]*?)(?=\n\s*def |\n\s*class |\Z|$)/m)
+    const forwardBody = forwardMatch ? forwardMatch[1] : ''
+  
+   
+    const skips = detectSkipConnections(forwardBody)
+  
+    if (selfLayers.length === 0) {
+      errors.push('No recognized PyTorch layers found. Paste a class with nn.Module or nn.Sequential.')
+      return { layers: [], edges: [], inputShape: null, errors, warnings }
+    }
+
+    const forwardCallRegex = /self\.(\w+)\s*\(/g
+    const forwardOrder = []
+    let fm
+    while ((fm = forwardCallRegex.exec(forwardBody)) !== null) {
+      const attr = fm[1]
+      if (selfNameMap[attr] !== undefined && !forwardOrder.includes(attr)) {
+        forwardOrder.push(attr)
+      }
+    }
+
+    const orderedLayers = []
+    const seen = new Set()
+    for (const attr of forwardOrder) {
+      const idx = selfNameMap[attr]
+      if (idx !== undefined && !seen.has(attr)) {
+        seen.add(attr)
+        orderedLayers.push(selfLayers[idx])
+      }
+    }
+
+    for (const layer of selfLayers) {
+      if (!seen.has(layer._attrName)) {
+        if (layer._attrName) {
+          warnings.push(`self.${layer._attrName} was defined but not detected in forward() — added at end.`)
+        }
+        orderedLayers.push(layer)
+      }
+    }
+  
+
+    const mergeInserts = skips.map(sk => ({
+      layerType: 'Merge',
+      config: { mode: sk.type === 'concat' ? 'concat' : 'add' },
+      _isMerge: true,
+    }))
+  
+  
+    const finalLayers = [...orderedLayers]
+    if (mergeInserts.length > 0 && orderedLayers.length >= 2) {
+      const insertAt = Math.floor(orderedLayers.length / 2)
+      finalLayers.splice(insertAt + 1, 0, ...mergeInserts.slice(0, 1))
+      if (mergeInserts.length > 1) {
+        warnings.push(`${mergeInserts.length - 1} additional skip connection(s) detected but could not be auto-positioned — please connect manually.`)
+      }
+    }
+  
+    return buildSequentialResult(finalLayers, errors, warnings)
+  }
