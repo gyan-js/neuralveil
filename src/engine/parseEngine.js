@@ -317,3 +317,106 @@ function stripCommentsAndDocstrings(code) {
   
     return buildSequentialResult(finalLayers, errors, warnings)
   }
+
+  function parseKerasLayerCall(callStr, warnings) {
+    const s = callStr.trim()
+  
+    // Conv2D
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Conv2D\s*\(/)) {
+      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
+      const filters  = resolveNum(kwargs.filters    ?? pos[0], warnings, 'Conv2D') ?? 64
+      const ks       = resolveNum(kwargs.kernel_size ?? pos[1], warnings, 'Conv2D') ?? 3
+      const st       = resolveNum(kwargs.strides     ?? pos[2], warnings, 'Conv2D') ?? 1
+      const padStr   = (kwargs.padding || '').replace(/['"]/g, '').toLowerCase()
+      const padding  = padStr === 'same' ? 1 : 0
+      return { layerType: 'Conv2D', config: { filters, kernelSize: ks, stride: st, padding, dilation: 1 } }
+    }
+  
+    // Dense
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Dense\s*\(/)) {
+      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
+      const units = resolveNum(kwargs.units ?? pos[0], warnings, 'Dense') ?? 256
+      return { layerType: 'Dense', config: { units } }
+    }
+  
+    // MaxPooling2D
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)MaxPooling2D\s*\(/)) {
+      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
+      const ks = resolveNum(kwargs.pool_size ?? pos[0], warnings, 'MaxPool2D') ?? 2
+      const st = resolveNum(kwargs.strides   ?? pos[1], warnings, 'MaxPool2D') ?? ks
+      return { layerType: 'MaxPool2D', config: { kernelSize: ks, stride: st, padding: 0 } }
+    }
+  
+    // BatchNormalization
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)BatchNormalization\s*\(/)) {
+      return { layerType: 'BatchNorm', config: { eps: 1e-5, momentum: 0.1 } }
+    }
+  
+    // Dropout
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Dropout\s*\(/)) {
+      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
+      const rate = resolveNum(kwargs.rate ?? pos[0], warnings, 'Dropout') ?? 0.5
+      return { layerType: 'Dropout', config: { p: rate } }
+    }
+  
+    // Flatten
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Flatten\s*\(/)) {
+      return { layerType: 'Flatten', config: {} }
+    }
+  
+    // MultiHeadAttention
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)MultiHeadAttention\s*\(/)) {
+      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
+      const num_heads = resolveNum(kwargs.num_heads ?? pos[0], warnings, 'MultiHeadAttention') ?? 8
+      const key_dim   = resolveNum(kwargs.key_dim   ?? pos[1], warnings, 'MultiHeadAttention') ?? 64
+      const embed_dim = num_heads * key_dim
+      return { layerType: 'MultiHeadAttention', config: { embed_dim, num_heads, dropout: 0.1 } }
+    }
+  
+    // LSTM
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)(?:Bidirectional\s*\(\s*layers\.)?LSTM\s*\(/)) {
+      const bidirectional = s.includes('Bidirectional')
+   
+      const inner = bidirectional ? s.replace(/layers\.Bidirectional\s*\(/, '') : s
+      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(inner))
+      const hidden_size = resolveNum(kwargs.units ?? pos[0], warnings, 'LSTM') ?? 256
+      const ret_seq     = resolveBool(kwargs.return_sequences, true)
+      return { layerType: 'LSTM', config: { hidden_size, num_layers: 1, bidirectional, return_sequences: ret_seq } }
+    }
+  
+    // Embedding
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Embedding\s*\(/)) {
+      const { positional: pos, kwargs } = extractLayerArgs(extractArgString(s))
+      const num_embeddings = resolveNum(kwargs.input_dim  ?? pos[0], warnings, 'Embedding') ?? 10000
+      const embedding_dim  = resolveNum(kwargs.output_dim ?? pos[1], warnings, 'Embedding') ?? 256
+      return { layerType: 'Embedding', config: { num_embeddings, embedding_dim } }
+    }
+  
+    // LayerNormalization
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)LayerNormalization\s*\(/)) {
+      return { layerType: 'LayerNorm', config: {} }
+    }
+  
+    // Merge: Add
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Add\s*\(/)) {
+      return { layerType: 'Merge', config: { mode: 'add' } }
+    }
+  
+    // Merge: Concatenate
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Concatenate\s*\(/)) {
+      return { layerType: 'Merge', config: { mode: 'concat' } }
+    }
+  
+    // Lambda layers ->  Unknown
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)Lambda\s*\(/)) {
+      warnings.push('Lambda layer detected — imported as Unknown node.')
+      return { layerType: 'Unknown', config: {}, label: 'Lambda' }
+    }
+  
+    // Activation-only ->  skip
+    if (s.match(/(?:layers\.|tf\.keras\.layers\.)(?:ReLU|Activation|Softmax|Sigmoid|LeakyReLU|ELU|PReLU)\s*\(/)) {
+      return null
+    }
+  
+    return 'unknown'
+  }
