@@ -227,7 +227,12 @@ export const useGraphStore = create((set, get) => {
     },
 
     toggleFormat: () => {
-      set(state => ({ format: state.format === 'NCHW' ? 'NHWC' : 'NCHW' }))
+      set(state => {
+        const newFormat = state.format === 'NCHW' ? 'NHWC' : 'NCHW'
+        
+        const results = propagateGraph(state.nodes, state.edges, state.inputShape, newFormat)
+        return { format: newFormat, shapeResults: results }
+      })
     },
 
     selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
