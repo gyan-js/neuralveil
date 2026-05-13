@@ -71,7 +71,7 @@ export default function Hero() {
           className="font-bebas leading-none glitch-text reveal-up opacity-0-init delay-100"
           data-text="THE FORGE WHERE"
           style={{
-            fontSize: 'clamp(56px, 12vw, 85px)',
+            fontSize: 'clamp(56px, 12vw, 82px)',
             color: 'var(--text)',
             letterSpacing: '0.02em',
           }}
@@ -81,7 +81,7 @@ export default function Hero() {
         <h1
           className="font-bebas leading-none reveal-up opacity-0-init delay-300"
           style={{
-            fontSize: 'clamp(56px, 12vw, 85px)',
+            fontSize: 'clamp(56px, 12vw, 82px)',
             color: 'var(--gold)',
             letterSpacing: '0.02em',
             textShadow: '0 0 60px rgba(201,168,76,0.3)',
@@ -94,7 +94,7 @@ export default function Hero() {
           className="font-bebas leading-none reveal-up opacity-0-init delay-500"
           data-text="UNDERSTOOD"
           style={{
-            fontSize: 'clamp(56px, 12vw, 85px)',
+            fontSize: 'clamp(56px, 12vw, 82px)',
             color: 'var(--ember)',
             letterSpacing: '0.02em',
             textShadow: '0 0 60px rgba(255,94,26,0.4)',
@@ -114,7 +114,7 @@ export default function Hero() {
             marginLeft: 'clamp(0rem, 2vw, 2rem)',
           }}
         >
-          NeuralVeil is a research-grade ML developer toolkit built for engineers who
+          NeuralVeil is a research-grade ML developer toolkit built for engineers and students who
           think at the systems level. Two powerful tools. One unified suite.{' '}
           <span style={{ color: 'var(--gold)' }}>Dropping end of May.</span>
         </p>
