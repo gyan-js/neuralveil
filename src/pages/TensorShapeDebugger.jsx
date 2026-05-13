@@ -5,11 +5,14 @@ import LayerPalette from '../components/LayerPalette.jsx'
 import GraphCanvas from '../components/GraphCanvas.jsx'
 import Inspector from '../components/Inspector.jsx'
 import StatusBar from '../components/StatusBar.jsx'
-import CodeImportPanel from '../components/CodeImportPanel.jsx'   // ← NEW
+import CodeImportPanel from '../components/CodeImportPanel.jsx'  
+import Nav from '../components/neuralveil/Nav'
 
 export const TensorShapeDebugger = () => {
   return (
+
     <ReactFlowProvider>
+  
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
         <TopBar />
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
