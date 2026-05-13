@@ -83,7 +83,7 @@ export default function Nav() {
               letterSpacing: '0.12em',
             }}
           >
-            <span className="relative z-10 group-hover:text-bg transition-colors duration-300">LAUNCH APP</span>
+            <span className="relative z-10 group-hover:text-bg transition-colors duration-300">TOOL LAUNCH</span>
             <span
               className="absolute inset-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300"
               style={{ background: 'var(--gold)' }}
