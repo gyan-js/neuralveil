@@ -2,7 +2,7 @@ import { useGraphStore } from '../store/useGraphStore.js'
 import { exportToPyTorch, exportToKeras, exportToJSON } from '../engine/exportEngine.js'
 import { Download, Save, Upload, Code2, Link, ChevronDown, Cpu, Layers, FileCode2 } from 'lucide-react'
 import { useRef, useState, useCallback, useEffect } from 'react'
-
+import { useNavigate } from 'react-router'
 import '../styles/globals.css'
 
 // ─── PRESETS ──────────────────────────────────────────────────────────────────
@@ -460,6 +460,7 @@ export default function TopBar() {
   const loadFromJSON = useGraphStore(s => s.loadFromJSON)
   const [showExport, setShowExport] = useState(false)
   const fileRef = useRef(null)
+  const navigate = useNavigate()
 
   const handleLoadJSON = (e) => {
     const file = e.target.files?.[0]
@@ -516,24 +517,25 @@ export default function TopBar() {
         zIndex: 100,
       }}>
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 8 }}>
-          <LogoIcon />
-          <div>
-            <span style={{
-              fontFamily: 'Syne', fontWeight: 800, fontSize: 15,
-              color: '#00E5FF', letterSpacing: '0.06em',
-              textShadow: '0 0 20px rgba(0,229,255,0.4)',
-            }}>
-              (still looking for)
-            </span>
-            <span style={{
-              fontFamily: 'Syne', fontWeight: 400, fontSize: 15,
-              color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginLeft: 4,
-            }}>
-              v3.0.1
-            </span>
-          </div>
-        </div>
+        <a onClick={() => navigate('/')} className="flex items-center gap-3 group">
+          <ForgeSpark />
+          <span
+            className="font-bebas text-xl tracking-widest text-gold transition-all duration-300 group-hover:text-gold2"
+            style={{ letterSpacing: '0.15em' }}
+          >
+            NEURALVEIL
+          </span>
+          <span
+            className="font-mono-tech text-xs px-2 py-0.5 border rounded"
+            style={{
+              color: 'var(--text-dim)',
+              borderColor: 'rgba(201,168,76,0.2)',
+              fontSize: '0.6rem',
+            }}
+          >
+            V3.0.1-GAMMA
+          </span>
+        </a>
 
         <div style={{ width: 1, height: 20, background: 'rgba(0,229,255,0.1)' }} />
 
@@ -593,5 +595,20 @@ export default function TopBar() {
         />
       )}
     </>
+  )
+}
+
+function ForgeSpark() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" className="animate-pulse-slow">
+      <circle cx="11" cy="11" r="4" fill="none" stroke="#c9a84c" strokeWidth="1" opacity="0.6" />
+      <circle cx="11" cy="11" r="2" fill="#c9a84c" opacity="0.9" />
+      <line x1="11" y1="1" x2="11" y2="5" stroke="#ff5e1a" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="11" y1="17" x2="11" y2="21" stroke="#ff5e1a" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="1" y1="11" x2="5" y2="11" stroke="#ff5e1a" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="17" y1="11" x2="21" y2="11" stroke="#ff5e1a" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="3.5" y1="3.5" x2="6.5" y2="6.5" stroke="#c9a84c" strokeWidth="1" strokeLinecap="round" opacity="0.5" />
+      <line x1="15.5" y1="15.5" x2="18.5" y2="18.5" stroke="#c9a84c" strokeWidth="1" strokeLinecap="round" opacity="0.5" />
+    </svg>
   )
 }
