@@ -6,7 +6,7 @@ import GraphCanvas from '../components/GraphCanvas.jsx'
 import Inspector from '../components/Inspector.jsx'
 import StatusBar from '../components/StatusBar.jsx'
 import CodeImportPanel from '../components/CodeImportPanel.jsx'  
-import Nav from '../components/neuralveil/Nav'
+
 
 export const TensorShapeDebugger = () => {
   return (
