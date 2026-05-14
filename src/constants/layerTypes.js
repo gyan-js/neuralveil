@@ -1,0 +1,68 @@
+export const LAYER_TYPES = [
+    {
+      value: 'Dense',
+      label: 'Dense / Linear',
+      fields: ['units', 'output'],
+      fieldLabels: { units: 'Input Features', output: 'Output Features' },
+      defaults: { units: 256, output: 256, seqLen: 1 },
+      formula: '(in × out) + out',
+    },
+    {
+      value: 'Conv2D',
+      label: 'Conv2D',
+      fields: ['units', 'output', 'seqLen'],
+      fieldLabels: { units: 'In Channels', output: 'Out Channels', seqLen: 'Spatial (H=W)' },
+      defaults: { units: 64, output: 128, seqLen: 32 },
+      formula: '(3×3×in×out) + out',
+    },
+    {
+      value: 'Embedding',
+      label: 'Embedding',
+      fields: ['units', 'output'],
+      fieldLabels: { units: 'Vocab Size', output: 'Embed Dim' },
+      defaults: { units: 50257, output: 768, seqLen: 1 },
+      formula: 'vocab × dim',
+    },
+    {
+      value: 'MultiHeadAttention',
+      label: 'MultiHeadAttention',
+      fields: ['units', 'seqLen'],
+      fieldLabels: { units: 'Embed Dim', seqLen: 'Seq Len' },
+      defaults: { units: 768, output: 768, seqLen: 512 },
+      formula: '4 × dim²',
+    },
+    {
+      value: 'LSTM',
+      label: 'LSTM',
+      fields: ['units', 'extra', 'seqLen'],
+      fieldLabels: { units: 'Hidden Dim', extra: 'Input Dim', seqLen: 'Seq Len' },
+      defaults: { units: 256, output: 256, extra: 256, seqLen: 128 },
+      formula: '4 × (hid² + in×hid + hid)',
+    },
+    {
+      value: 'BatchNorm',
+      label: 'BatchNorm',
+      fields: ['units'],
+      fieldLabels: { units: 'Num Features' },
+      defaults: { units: 256, output: 256, seqLen: 1 },
+      formula: '2 × features',
+    },
+    {
+      value: 'LayerNorm',
+      label: 'LayerNorm',
+      fields: ['units'],
+      fieldLabels: { units: 'Num Features' },
+      defaults: { units: 768, output: 768, seqLen: 1 },
+      formula: '2 × features',
+    },
+    {
+      value: 'Dropout',
+      label: 'Dropout',
+      fields: [],
+      fieldLabels: {},
+      defaults: { units: 0, output: 0, seqLen: 1 },
+      formula: '0 params',
+    },
+  ]
+  
+  export const LAYER_TYPE_MAP = Object.fromEntries(LAYER_TYPES.map((l) => [l.value, l]))
