@@ -1,0 +1,26 @@
+{
+    "name": "LLaMA-7B",
+    "batchSize": 1,
+    "precision": "fp16",
+    "mode": "inference",
+    "optimizerType": "adam",
+    "layers": [
+      { "type": "Embedding", "units": 32000, "output": 4096, "seqLen": 2048 },
+      { "type": "MultiHeadAttention", "units": 4096, "output": 4096, "seqLen": 2048 },
+      { "type": "LayerNorm", "units": 4096, "output": 4096, "seqLen": 2048 },
+      { "type": "Dense", "units": 4096, "output": 11008, "seqLen": 2048 },
+      { "type": "Dense", "units": 11008, "output": 4096, "seqLen": 2048 },
+      { "type": "MultiHeadAttention", "units": 4096, "output": 4096, "seqLen": 2048 },
+      { "type": "LayerNorm", "units": 4096, "output": 4096, "seqLen": 2048 },
+      { "type": "Dense", "units": 4096, "output": 11008, "seqLen": 2048 },
+      { "type": "Dense", "units": 11008, "output": 4096, "seqLen": 2048 },
+      { "type": "MultiHeadAttention", "units": 4096, "output": 4096, "seqLen": 2048 },
+      { "type": "LayerNorm", "units": 4096, "output": 4096, "seqLen": 2048 },
+      { "type": "Dense", "units": 4096, "output": 11008, "seqLen": 2048 },
+      { "type": "Dense", "units": 11008, "output": 4096, "seqLen": 2048 },
+      { "type": "MultiHeadAttention", "units": 4096, "output": 4096, "seqLen": 2048 },
+      { "type": "LayerNorm", "units": 4096, "output": 4096, "seqLen": 2048 },
+      { "type": "Dense", "units": 4096, "output": 11008, "seqLen": 2048 },
+      { "type": "Dense", "units": 11008, "output": 4096, "seqLen": 2048 }
+    ]
+  }

@@ -1,0 +1,22 @@
+{
+    "name": "BERT-base",
+    "batchSize": 1,
+    "precision": "fp32",
+    "mode": "inference",
+    "optimizerType": "adam",
+    "layers": [
+      { "type": "Embedding", "units": 30522, "output": 768, "seqLen": 512 },
+      { "type": "MultiHeadAttention", "units": 768, "output": 768, "seqLen": 512 },
+      { "type": "LayerNorm", "units": 768, "output": 768, "seqLen": 512 },
+      { "type": "Dense", "units": 768, "output": 3072, "seqLen": 512 },
+      { "type": "Dense", "units": 3072, "output": 768, "seqLen": 512 },
+      { "type": "MultiHeadAttention", "units": 768, "output": 768, "seqLen": 512 },
+      { "type": "LayerNorm", "units": 768, "output": 768, "seqLen": 512 },
+      { "type": "Dense", "units": 768, "output": 3072, "seqLen": 512 },
+      { "type": "Dense", "units": 3072, "output": 768, "seqLen": 512 },
+      { "type": "MultiHeadAttention", "units": 768, "output": 768, "seqLen": 512 },
+      { "type": "LayerNorm", "units": 768, "output": 768, "seqLen": 512 },
+      { "type": "Dense", "units": 768, "output": 3072, "seqLen": 512 },
+      { "type": "Dense", "units": 3072, "output": 768, "seqLen": 512 }
+    ]
+  }

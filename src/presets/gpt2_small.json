@@ -1,0 +1,26 @@
+{
+    "name": "GPT-2 Small",
+    "batchSize": 1,
+    "precision": "fp16",
+    "mode": "inference",
+    "optimizerType": "adam",
+    "layers": [
+      { "type": "Embedding", "units": 50257, "output": 768, "seqLen": 1024 },
+      { "type": "MultiHeadAttention", "units": 768, "output": 768, "seqLen": 1024 },
+      { "type": "LayerNorm", "units": 768, "output": 768, "seqLen": 1024 },
+      { "type": "Dense", "units": 768, "output": 3072, "seqLen": 1024 },
+      { "type": "Dense", "units": 3072, "output": 768, "seqLen": 1024 },
+      { "type": "MultiHeadAttention", "units": 768, "output": 768, "seqLen": 1024 },
+      { "type": "LayerNorm", "units": 768, "output": 768, "seqLen": 1024 },
+      { "type": "Dense", "units": 768, "output": 3072, "seqLen": 1024 },
+      { "type": "Dense", "units": 3072, "output": 768, "seqLen": 1024 },
+      { "type": "MultiHeadAttention", "units": 768, "output": 768, "seqLen": 1024 },
+      { "type": "LayerNorm", "units": 768, "output": 768, "seqLen": 1024 },
+      { "type": "Dense", "units": 768, "output": 3072, "seqLen": 1024 },
+      { "type": "Dense", "units": 3072, "output": 768, "seqLen": 1024 },
+      { "type": "MultiHeadAttention", "units": 768, "output": 768, "seqLen": 1024 },
+      { "type": "LayerNorm", "units": 768, "output": 768, "seqLen": 1024 },
+      { "type": "Dense", "units": 768, "output": 3072, "seqLen": 1024 },
+      { "type": "Dense", "units": 3072, "output": 768, "seqLen": 1024 }
+    ]
+  }

@@ -1,0 +1,28 @@
+{
+    "name": "ResNet-50",
+    "batchSize": 1,
+    "precision": "fp32",
+    "mode": "inference",
+    "optimizerType": "sgd",
+    "layers": [
+      { "type": "Conv2D", "units": 3, "output": 64, "seqLen": 224 },
+      { "type": "BatchNorm", "units": 64, "output": 64, "seqLen": 112 },
+      { "type": "Conv2D", "units": 64, "output": 64, "seqLen": 56 },
+      { "type": "Conv2D", "units": 64, "output": 64, "seqLen": 56 },
+      { "type": "Conv2D", "units": 64, "output": 256, "seqLen": 56 },
+      { "type": "BatchNorm", "units": 256, "output": 256, "seqLen": 56 },
+      { "type": "Conv2D", "units": 256, "output": 128, "seqLen": 28 },
+      { "type": "Conv2D", "units": 128, "output": 128, "seqLen": 28 },
+      { "type": "Conv2D", "units": 128, "output": 512, "seqLen": 28 },
+      { "type": "BatchNorm", "units": 512, "output": 512, "seqLen": 28 },
+      { "type": "Conv2D", "units": 512, "output": 256, "seqLen": 14 },
+      { "type": "Conv2D", "units": 256, "output": 256, "seqLen": 14 },
+      { "type": "Conv2D", "units": 256, "output": 1024, "seqLen": 14 },
+      { "type": "BatchNorm", "units": 1024, "output": 1024, "seqLen": 14 },
+      { "type": "Conv2D", "units": 1024, "output": 512, "seqLen": 7 },
+      { "type": "Conv2D", "units": 512, "output": 512, "seqLen": 7 },
+      { "type": "Conv2D", "units": 512, "output": 2048, "seqLen": 7 },
+      { "type": "BatchNorm", "units": 2048, "output": 2048, "seqLen": 7 },
+      { "type": "Dense", "units": 2048, "output": 1000, "seqLen": 1 }
+    ]
+  }
