@@ -493,7 +493,7 @@ export default function About() {
           <p className="font-mono-jb" style={{
             fontSize: '10px', color: 'var(--ash,#8a7560)', letterSpacing: '0.14em', marginBottom: '24px',
           }}>
-            // typical workflow <span>()</span>
+            // neuralveil python library — soon <span className='text-white' ></span>
           </p>
 
           <div style={{
