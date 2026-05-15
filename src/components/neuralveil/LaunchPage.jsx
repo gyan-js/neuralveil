@@ -10,15 +10,21 @@ const codeLines = [
 
 function getTimeUntilLaunch() {
   const now = new Date()
-  const currentYear = now.getFullYear()
-  const currentMonth = now.getMonth()
-  const lastDay = new Date(currentYear, currentMonth + 1, 0)
-  const diff = lastDay - now
-  if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0 }
+
+  // May is month 4 because months are 0-indexed
+  const launchDate = new Date(now.getFullYear(), 4, 30, 23, 59, 59)
+
+  const diff = launchDate - now
+
+  if (diff <= 0) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0 }
+  }
+
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
   const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
   return { days, hours, minutes, seconds }
 }
 
@@ -81,6 +87,15 @@ function CountdownDivider() {
 export default function LaunchPage() {
   const { ref, hasIntersected } = useIntersectionObserver({ threshold: 0.2 })
   const [countdown, setCountdown] = useState(getTimeUntilLaunch())
+  const [email, setEmail] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+
+  const handleNotify = () => {
+    if (!email.trim()) return
+    setSubmitted(true)
+    setEmail('')
+    setTimeout(() => setSubmitted(false), 2000)
+  }
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -289,40 +304,11 @@ export default function LaunchPage() {
               overflow: 'hidden',
             }}
           >
-            <input
-              type="email"
-              placeholder="developer@lab.ai"
-              className="font-mono-jb"
-              style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: 'none',
-                outline: 'none',
-                color: 'var(--ash)',
-                fontSize: '12px',
-                letterSpacing: '0.06em',
-                padding: '12px 20px',
-                width: '220px',
-              }}
-            />
-            <button
-              className="font-mono-jb"
-              style={{
-                backgroundColor: 'rgba(232, 101, 10, 0.12)',
-                color: 'var(--ember)',
-                border: 'none',
-                borderLeft: '1px solid rgba(138, 117, 96, 0.2)',
-                padding: '12px 20px',
-                fontSize: '11px',
-                letterSpacing: '0.12em',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(232, 101, 10, 0.2)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(232, 101, 10, 0.12)')}
-            >
-              NOTIFY ME
-            </button>
+            <style>{`
+              .notify-input::placeholder { color: rgba(138,117,96,0.5); }
+              .notify-input.submitted::placeholder { color: #ffffff; }
+            `}</style>
+           
           </div>
         </div>
 
@@ -335,10 +321,10 @@ export default function LaunchPage() {
             letterSpacing: '0.06em',
             opacity: hasIntersected ? 0.7 : 0,
             transition: 'opacity 0.7s ease 1.1s',
-            margin: 0,
+            marginBottom: '20px'
           }}
         >
-          neuralveil v1.0 — research grade. no cloud. no telemetry. yours.
+          neuralveil v3.0.1 — research grade. no cloud. no telemetry.
         </p>
       </div>
     </section>

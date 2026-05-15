@@ -248,7 +248,7 @@ function MobileSidebar({ open, onClose, tick }) {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
             <span className="font-mono-jb" style={{ fontSize: '9px', color: 'rgba(232,101,10,0.4)', border: '1px solid rgba(232,101,10,0.15)', padding: '2px 7px', borderRadius: '2px', letterSpacing: '0.14em' }}>
-              V3.0
+              V3.0.1
             </span>
             <span className="font-mono-jb" style={{ fontSize: '9px', color: 'rgba(138,117,96,0.4)', letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums' }}>
               ML INTROSPECTION TOOLKIT
@@ -411,7 +411,7 @@ export default function Navbar() {
             border: '1px solid rgba(232,101,10,0.2)',
             padding: '2px 8px', borderRadius: '2px',
           }}>
-            V3.0
+            V3.0.1
           </span>
         </div>
 

@@ -69,7 +69,7 @@ function ToolCard({ tool, delay, hasIntersected }) {
         overflow: 'hidden',
       }}
     >
-      {/* Corner accent */}      <div style={{
+       <div style={{
         position: 'absolute', top: 0, left: 0,
         width: '40px', height: '40px',
         borderTop: `2px solid ${tool.accent}`,
@@ -77,7 +77,7 @@ function ToolCard({ tool, delay, hasIntersected }) {
         opacity: 0.6,
       }} />
 
-      {/* Badge */}
+    
       <div className="font-mono-jb" style={{
         display: 'inline-block', fontSize: '9px', letterSpacing: '0.14em',
         color: tool.accent, border: `1px solid ${tool.accent}`,
@@ -175,7 +175,7 @@ function NeuralNetworkSVG() {
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        {/* Ember glow filter */}
+       
         <filter id="ember-glow" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="3" result="blur" />
           <feMerge>
@@ -217,7 +217,7 @@ function NeuralNetworkSVG() {
         </linearGradient>
       </defs>
 
-      {/* ── All edges (dim base) ── */}
+
       {EDGES.map((e, i) => (
         <line
           key={`e-${i}`}
@@ -227,7 +227,7 @@ function NeuralNetworkSVG() {
         />
       ))}
 
-      {/* ── Bright highlighted edges with animated pulses ── */}
+    
       {EDGES.filter(e => e.bright).map((e, i) => (
         <line
           key={`ep-${i}`}
@@ -238,7 +238,7 @@ function NeuralNetworkSVG() {
         />
       ))}
 
-      {/* ── Layer labels ── */}
+      
       {[
         { x: 60,  label: 'INPUT' },
         { x: 185, label: 'H  1' },
@@ -259,7 +259,7 @@ function NeuralNetworkSVG() {
         </text>
       ))}
 
-      {/* ── Nodes ── */}
+   
       {NN_LAYERS.map((layer, li) =>
         Array.from({ length: layer.nodes }, (_, ni) => {
           const cx = layer.x
@@ -271,7 +271,7 @@ function NeuralNetworkSVG() {
 
           return (
             <g key={`n-${li}-${ni}`}>
-              {/* Outer ring glow for bright nodes */}
+          
               {isBright && (
                 <circle
                   cx={cx} cy={cy} r={NODE_R + 5}
@@ -295,7 +295,7 @@ function NeuralNetworkSVG() {
                 </circle>
               )}
 
-              {/* Node fill */}
+           
               <circle
                 cx={cx} cy={cy} r={NODE_R}
                 fill={
@@ -315,7 +315,7 @@ function NeuralNetworkSVG() {
                 filter={isBright || isOutput ? 'url(#node-glow)' : undefined}
               />
 
-              {/* Pulse dot inside active nodes */}
+
               {isBright && (
                 <circle cx={cx} cy={cy} r={3} fill="#ffb347" opacity="0.9">
                   <animate
@@ -331,7 +331,7 @@ function NeuralNetworkSVG() {
         })
       )}
 
-      {/* ── Floating layer annotations ── */}
+   
       {[
         { x: 122, y: 28,  text: 'weight: 0.847', opacity: 0.5 },
         { x: 248, y: 55,  text: 'relu(x)', opacity: 0.45 },
@@ -353,7 +353,6 @@ function NeuralNetworkSVG() {
   )
 }
 
-// ────────────────────────────────────────────────────────────────────────────
 
 export default function About() {
   const { ref, hasIntersected } = useIntersectionObserver({ threshold: 0.1 })
@@ -368,7 +367,7 @@ export default function About() {
         backgroundColor: 'var(--forge-deep, #0d0a07)',
       }}
     >
-      {/* Decorative SVG layers */}
+
       <div style={{ position: 'absolute', left: '-120px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
         <DendriteField opacity={0.06} width={720} height={900} />
       </div>
@@ -379,13 +378,13 @@ export default function About() {
         <ForgeCircuit opacity={0.03} width={580} height={580} animate={false} />
       </div>
 
-      {/* Left ember bar */}
+    
       <div style={{
         position: 'absolute', left: '8vw', top: 0, bottom: 0, width: '1px',
         background: 'linear-gradient(to bottom, transparent, rgba(232,101,10,0.35) 30%, rgba(232,101,10,0.35) 70%, transparent)',
       }} />
 
-      {/* Horizontal rule */}
+
       <div style={{
         position: 'absolute', top: '0', left: '8vw', right: '8vw',
         height: '1px', background: 'linear-gradient(to right, rgba(232,101,10,0.3), transparent)',
@@ -393,13 +392,13 @@ export default function About() {
 
       <div style={{ position: 'relative', zIndex: 2, paddingLeft: '12vw', paddingRight: '8vw' }}>
 
-        {/* Section header — two column: text left, neural net SVG right */}
+        
         <div style={{
           display: 'flex', alignItems: 'stretch', gap: '0',
           marginBottom: '72px',
         }}>
 
-          {/* ── Left: text ── */}
+       
           <div style={{ flex: '0 0 480px', maxWidth: '480px', marginRight: '48px' }}>
           <p className="font-mono-jb" style={{
             fontSize: '11px', color: 'var(--ash, #8a7560)', letterSpacing: '0.14em',
@@ -450,7 +449,7 @@ export default function About() {
           </div>
           </div>
 
-          {/* ── Right: Neural Network SVG — fills entire remaining column ── */}
+        
           <div style={{
             flex: '1',
             minHeight: '420px',
@@ -461,7 +460,7 @@ export default function About() {
             display: 'flex',
             alignItems: 'stretch',
           }}>
-            {/* Subtle left border separator */}
+       
             <div style={{
               position: 'absolute', left: 0, top: '5%', bottom: '5%',
               width: '1px',
@@ -474,7 +473,7 @@ export default function About() {
 
         </div>
 
-        {/* Tool cards — 2-column */}
+     
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
           gap: '20px', marginBottom: '88px',
@@ -484,7 +483,7 @@ export default function About() {
           ))}
         </div>
 
-        {/* Pipeline / workflow strip */}
+   
         <div ref={timelineRef} style={{
           marginBottom: '80px',
           opacity: timelineVisible ? 1 : 0,
@@ -494,7 +493,7 @@ export default function About() {
           <p className="font-mono-jb" style={{
             fontSize: '10px', color: 'var(--ash,#8a7560)', letterSpacing: '0.14em', marginBottom: '24px',
           }}>
-            // typical workflow
+            // typical workflow <span>()</span>
           </p>
 
           <div style={{
@@ -509,21 +508,21 @@ export default function About() {
                 position: 'relative',
                 backgroundColor: i === 4 ? 'rgba(232,101,10,0.06)' : 'rgba(12,9,6,0.4)',
               }}>
-                {/* Step number */}
+            
                 <div className="font-bebas" style={{
                   fontSize: '11px', color: i === 4 ? 'var(--ember,#e8650a)' : '#3a3028',
                   letterSpacing: '0.12em', marginBottom: '8px',
                 }}>
                   {i < 4 ? `STEP 0${i + 1}` : '✓ DONE'}
                 </div>
-                {/* Phase name */}
+             
                 <div className="font-bebas" style={{
                   fontSize: '22px', color: i === 4 ? 'var(--ember,#e8650a)' : '#ede8e0',
                   letterSpacing: '0.06em', lineHeight: 1, marginBottom: '10px',
                 }}>
                   {step.phase}
                 </div>
-                {/* Code snippet */}
+              
                 <div className="font-mono-jb" style={{
                   fontSize: '10px', color: i === 4 ? 'var(--ember,#e8650a)' : '#5a6470',
                   backgroundColor: 'rgba(0,0,0,0.3)', padding: '6px 8px',
@@ -532,14 +531,13 @@ export default function About() {
                 }}>
                   {step.code}
                 </div>
-                {/* Description */}
+            
                 <div className="font-mono-jb" style={{
                   fontSize: '11px', color: '#4a4038', lineHeight: 1.5,
                 }}>
                   {step.desc}
                 </div>
 
-                {/* Arrow connector */}
                 {i < timeline.length - 1 && (
                   <div style={{
                     position: 'absolute', right: '-7px', top: '50%', transform: 'translateY(-50%)',
@@ -555,7 +553,7 @@ export default function About() {
           </div>
         </div>
 
-        {/* Stats strip */}
+    
         <div style={{
           display: 'flex', gap: '0', flexWrap: 'wrap',
           borderTop: '1px solid rgba(138,117,96,0.12)',
@@ -565,7 +563,7 @@ export default function About() {
           transition: 'all 0.7s ease 0.55s',
         }}>
           {stats.map((stat, i) => (
-            <div key={i} style={{
+            <div key={i} className='sm:block hidden' style={{
               flex: '1', minWidth: '160px', paddingRight: '28px',
               borderRight: i < stats.length - 1 ? '1px solid rgba(138,117,96,0.12)' : 'none',
               paddingLeft: i > 0 ? '28px' : '0',
@@ -585,11 +583,12 @@ export default function About() {
             </div>
           ))}
 
-          {/* CTA inline with stats */}
+       
           <div style={{
             flex: '1', minWidth: '160px', paddingLeft: '28px',
             display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px',
           }}>
+            <a href='#launch' >
             <button className="font-mono-jb" style={{
               backgroundColor: 'var(--ember,#e8650a)', color: 'var(--void,#0a0705)',
               border: 'none', padding: '12px 22px', fontSize: '11px',
@@ -601,19 +600,20 @@ export default function About() {
             >
               TRY SHAPE TRACER →
             </button>
-            <Link to="/gpu">
+            </a>
+            <a href="#launch">
             <button className="font-mono-jb" style={{
               backgroundColor: 'transparent', color: 'var(--ember,#e8650a)',
               border: '1px solid rgba(232,101,10,0.35)', padding: '12px 22px',
               fontSize: '11px', letterSpacing: '0.1em', fontWeight: '500',
-              cursor: 'pointer', borderRadius: '2px', transition: 'all 0.2s ease', textAlign: 'left',
+              cursor: 'pointer', borderRadius: '2px', transition: 'all 0.2s ease', textAlign: 'left', width: '100%'
             }}
               onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(232,101,10,0.07)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.transform = 'translateY(0)' }}
             >
               ESTIMATE VRAM →
             </button>
-            </Link>
+            </a>
           </div>
         </div>
 

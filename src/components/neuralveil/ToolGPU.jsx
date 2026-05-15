@@ -78,6 +78,57 @@ const gpuFeatures = [
   },
 ]
 
+function MobileStyles() {
+  return (
+    <style>{`
+      @media (max-width: 768px) {
+        .tool-gpu-section {
+          padding: 80px 0 80px !important;
+        }
+        .tool-gpu-watermark {
+          display: none !important;
+        }
+        .tool-gpu-header {
+          justify-content: flex-start !important;
+          margin-bottom: 36px !important;
+          flex-wrap: wrap;
+        }
+        .tool-gpu-header h2 {
+          font-size: clamp(26px, 7vw, 38px) !important;
+        }
+        .tool-gpu-error-section {
+          margin-bottom: 48px !important;
+        }
+        .tool-gpu-error-tabs {
+          flex-direction: column !important;
+          gap: 4px !important;
+        }
+        .tool-gpu-error-tabs button {
+          border-bottom: 1px solid !important;
+          border-radius: 2px !important;
+        }
+        .tool-gpu-error-tabs button .tab-bottom-mask {
+          display: none !important;
+        }
+        .tool-gpu-terminal {
+          border-radius: 4px !important;
+        }
+        .tool-gpu-content-grid {
+          grid-template-columns: 1fr !important;
+          gap: 40px !important;
+        }
+        .tool-gpu-preview-grid {
+          grid-template-columns: 1fr !important;
+          gap: 16px !important;
+        }
+        .tool-gpu-inner {
+          padding: 0 5vw !important;
+        }
+      }
+    `}</style>
+  )
+}
+
 function Typewriter({ lines, punchline, active }) {
   const [displayed, setDisplayed] = useState([])
   const [charIdx, setCharIdx] = useState(0)
@@ -162,7 +213,7 @@ function ErrorSelector({ scenarios, visible }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '2px', marginBottom: '0' }}>
+      <div className="tool-gpu-error-tabs" style={{ display: 'flex', gap: '2px', marginBottom: '0' }}>
         {scenarios.map((s, i) => (
           <button
             key={s.id}
@@ -331,7 +382,7 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
       </div>
 
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: '12px', alignItems: 'stretch' }}>
+      <div className="tool-gpu-preview-grid" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: '12px', alignItems: 'stretch' }}>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{
@@ -468,6 +519,7 @@ export default function ToolGPU() {
   return (
     <section
       ref={sectionRef}
+      className="tool-gpu-section"
       style={{
         position: 'relative',
         overflow: 'hidden',
@@ -475,11 +527,11 @@ export default function ToolGPU() {
         backgroundColor: 'var(--forge-deep)',
       }}
     >
+      <MobileStyles />
    
       <div
-        className="font-bebas"
+        className="font-bebas tool-gpu-watermark"
         style={{
-          position: 'absolute', top: '40px', right: '-20px',
           fontSize: 'clamp(80px, 12vw, 160px)',
           color: 'rgba(240, 120, 32, 0.04)',
           letterSpacing: '0.04em',
@@ -498,12 +550,16 @@ export default function ToolGPU() {
         <ForgeCircuit opacity={0.05} width={500} height={600} animate={true} />
       </div>
 
-      <div style={{
+      <div
+        className="tool-gpu-inner"
+        style={{
         position: 'relative', zIndex: 2,
         maxWidth: '1200px', margin: '0 auto', padding: '0 8vw',
       }}>
   
-        <div style={{
+        <div
+          className="tool-gpu-header"
+          style={{
           display: 'flex', alignItems: 'center', gap: '16px',
           marginBottom: '56px', justifyContent: 'flex-end',
           opacity: hasIntersected ? 1 : 0,
@@ -524,6 +580,7 @@ export default function ToolGPU() {
      
         <div
           ref={errorRef}
+          className="tool-gpu-error-section"
           style={{
             marginBottom: '80px',
             opacity: hasIntersected ? 1 : 0,
@@ -542,7 +599,9 @@ export default function ToolGPU() {
         </div>
 
 
-        <div style={{
+        <div
+          className="tool-gpu-content-grid"
+          style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: '80px',

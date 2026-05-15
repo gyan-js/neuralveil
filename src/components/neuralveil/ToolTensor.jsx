@@ -78,6 +78,50 @@ const tensorFeatures = [
 ]
 
 
+function MobileStyles() {
+  return (
+    <style>{`
+      @media (max-width: 768px) {
+        .tool-tensor-section {
+          padding: 80px 0 80px !important;
+        }
+        .tool-tensor-watermark {
+          display: none !important;
+        }
+        .tool-tensor-header {
+          margin-bottom: 36px !important;
+          flex-wrap: wrap;
+        }
+        .tool-tensor-header h2 {
+          font-size: clamp(26px, 7vw, 38px) !important;
+        }
+        .tool-tensor-error-section {
+          margin-bottom: 48px !important;
+        }
+        .tool-tensor-error-tabs {
+          flex-direction: column !important;
+          gap: 4px !important;
+        }
+        .tool-tensor-error-tabs button {
+          border-bottom: 1px solid !important;
+          border-radius: 2px !important;
+        }
+        .tool-tensor-content-grid {
+          grid-template-columns: 1fr !important;
+          gap: 40px !important;
+        }
+        .tool-tensor-preview-grid {
+          grid-template-columns: 1fr !important;
+          gap: 16px !important;
+        }
+        .tool-tensor-inner {
+          padding: 0 5vw !important;
+        }
+      }
+    `}</style>
+  )
+}
+
 function Typewriter({ lines, punchline, active }) {
   const [displayed, setDisplayed] = useState([])
   const [charIdx, setCharIdx] = useState(0)
@@ -162,7 +206,7 @@ function ErrorSelector({ scenarios, visible }) {
   return (
     <div>
 
-      <div style={{ display: 'flex', gap: '2px', marginBottom: '0', position: 'relative' }}>
+      <div className="tool-tensor-error-tabs" style={{ display: 'flex', gap: '2px', marginBottom: '0', position: 'relative' }}>
         {scenarios.map((s, i) => (
           <button
             key={s.id}
@@ -336,7 +380,7 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
         <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, #2a1f15, transparent)' }} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.6fr', gap: '12px', alignItems: 'stretch' }}>
+      <div className="tool-tensor-preview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.6fr', gap: '12px', alignItems: 'stretch' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{
             border: '1px solid #2a1f15',
@@ -473,6 +517,7 @@ export default function ToolTensor() {
     <section
       id="tools"
       ref={sectionRef}
+      className="tool-tensor-section"
       style={{
         position: 'relative',
         overflow: 'hidden',
@@ -480,11 +525,11 @@ export default function ToolTensor() {
         backgroundColor: 'var(--void)',
       }}
     >
+      <MobileStyles />
       
       <div
-        className="font-bebas"
+        className="font-bebas tool-tensor-watermark"
         style={{
-          position: 'absolute', top: '40px', left: '-20px',
           fontSize: 'clamp(80px, 12vw, 160px)',
           color: 'rgba(232, 101, 10, 0.04)',
           letterSpacing: '0.04em',
@@ -503,12 +548,16 @@ export default function ToolTensor() {
         <DendriteField opacity={0.05} width={400} height={600} />
       </div>
 
-      <div style={{
+      <div
+        className="tool-tensor-inner"
+        style={{
         position: 'relative', zIndex: 2,
         maxWidth: '1200px', margin: '0 auto', padding: '0 8vw',
       }}>
        
-        <div style={{
+        <div
+          className="tool-tensor-header"
+          style={{
           display: 'flex', alignItems: 'center', gap: '16px',
           marginBottom: '56px',
           opacity: hasIntersected ? 1 : 0,
@@ -529,6 +578,7 @@ export default function ToolTensor() {
   
         <div
           ref={errorRef}
+          className="tool-tensor-error-section"
           style={{
             marginBottom: '80px',
             opacity: hasIntersected ? 1 : 0,
@@ -546,7 +596,9 @@ export default function ToolTensor() {
         </div>
 
     
-        <div style={{
+        <div
+          className="tool-tensor-content-grid"
+          style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: '80px',
