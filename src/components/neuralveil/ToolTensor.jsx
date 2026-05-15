@@ -161,7 +161,7 @@ function ErrorSelector({ scenarios, visible }) {
 
   return (
     <div>
-      {/* Selector tabs */}
+
       <div style={{ display: 'flex', gap: '2px', marginBottom: '0', position: 'relative' }}>
         {scenarios.map((s, i) => (
           <button
@@ -202,7 +202,7 @@ function ErrorSelector({ scenarios, visible }) {
         ))}
       </div>
 
-      {/* Terminal */}
+   
       <div style={{
         background: '#0f0b07',
         border: '1px solid #e8650a',
@@ -210,7 +210,7 @@ function ErrorSelector({ scenarios, visible }) {
         padding: '0',
         borderRadius: '0 0 4px 4px',
       }}>
-        {/* Terminal bar */}
+       
         <div style={{
           display: 'flex', alignItems: 'center', gap: '8px',
           padding: '10px 16px',
@@ -236,7 +236,7 @@ function ErrorSelector({ scenarios, visible }) {
   )
 }
 
-/* ─── FEATURE CARDS ──────────────────────────────────────────────────────── */
+
 function FeatureCards({ features, accentColor }) {
   const [expanded, setExpanded] = useState(null)
 
@@ -265,7 +265,7 @@ function FeatureCards({ features, accentColor }) {
                 overflow: 'hidden',
               }}
             >
-              {/* Cyberpunk corner accent */}
+         
               <div style={{
                 position: 'absolute', top: 0, left: 0,
                 width: '3px', height: isOpen ? '100%' : '40%',
@@ -324,7 +324,7 @@ function FeatureCards({ features, accentColor }) {
   )
 }
 
-/* ─── PREVIEW SECTION ────────────────────────────────────────────────────── */
+
 function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Label }) {
   return (
     <div style={{ marginTop: '80px' }}>
@@ -337,7 +337,6 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.6fr', gap: '12px', alignItems: 'stretch' }}>
-        {/* Image 1 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{
             border: '1px solid #2a1f15',
@@ -365,7 +364,7 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
           </span>
         </div>
 
-        {/* Image 2 */}
+  
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{
             border: '1px solid #2a1f15',
@@ -392,8 +391,6 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
             {img2Label}
           </span>
         </div>
-
-        {/* GIF — bigger */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{
             border: '1px solid #e8650a',
@@ -403,7 +400,7 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
             flex: 1,
             minHeight: '200px',
           }}>
-            {/* Corner cuts — cyberpunk */}
+          
             <div style={{
               position: 'absolute', top: 0, left: 0,
               width: 0, height: 0,
@@ -418,7 +415,7 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
               borderTop: '12px solid transparent',
               zIndex: 2,
             }} />
-            {/* Live badge */}
+    
             <div style={{
               position: 'absolute', top: '10px', right: '10px', zIndex: 3,
               display: 'flex', alignItems: 'center', gap: '5px',
@@ -467,7 +464,7 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
   )
 }
 
-/* ─── MAIN COMPONENT ─────────────────────────────────────────────────────── */
+
 export default function ToolTensor() {
   const { ref: sectionRef, hasIntersected } = useIntersectionObserver({ threshold: 0.05 })
   const { ref: errorRef, hasIntersected: errorVisible } = useIntersectionObserver({ threshold: 0.2 })
@@ -483,7 +480,7 @@ export default function ToolTensor() {
         backgroundColor: 'var(--void)',
       }}
     >
-      {/* Watermark */}
+      
       <div
         className="font-bebas"
         style={{
@@ -498,7 +495,7 @@ export default function ToolTensor() {
         TENSOR DEBUG
       </div>
 
-      {/* Dendrite bg */}
+
       <div style={{
         position: 'absolute', right: '-80px', top: '50%',
         transform: 'translateY(-50%)', pointerEvents: 'none',
@@ -510,7 +507,7 @@ export default function ToolTensor() {
         position: 'relative', zIndex: 2,
         maxWidth: '1200px', margin: '0 auto', padding: '0 8vw',
       }}>
-        {/* Header */}
+       
         <div style={{
           display: 'flex', alignItems: 'center', gap: '16px',
           marginBottom: '56px',
@@ -529,7 +526,7 @@ export default function ToolTensor() {
           </h2>
         </div>
 
-        {/* ① Error Selector */}
+  
         <div
           ref={errorRef}
           style={{
@@ -548,7 +545,7 @@ export default function ToolTensor() {
           <ErrorSelector scenarios={tensorErrorScenarios} visible={errorVisible} />
         </div>
 
-        {/* ② Features + Description grid */}
+    
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -558,7 +555,7 @@ export default function ToolTensor() {
           transform: hasIntersected ? 'translateY(0)' : 'translateY(24px)',
           transition: 'all 0.7s ease 0.4s',
         }}>
-          {/* Description */}
+        
           <div>
             <p className="font-mono-jb" style={{
               fontSize: '11px', color: 'var(--ash)',
@@ -577,11 +574,11 @@ export default function ToolTensor() {
             </p>
           </div>
 
-          {/* Feature cards */}
+         
           <FeatureCards features={tensorFeatures} accentColor="#e8650a" />
         </div>
 
-        {/* ③ Preview Section */}
+   
         <div style={{
           opacity: hasIntersected ? 1 : 0,
           transform: hasIntersected ? 'translateY(0)' : 'translateY(32px)',
