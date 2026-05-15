@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+:root {
+  --void: #0a0804;
+  --forge-deep: #0f0b07;
+  --ember: #e8650a;
+  --flame: #f07820;
+  --hot: #ff4500;
+  --ash: #8a7560;
+  --spark: #ffb347;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--void);
+  color: #e8e0d5;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Neural pulse glow animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px var(--ember)) drop-shadow(0 0 4px var(--ember));
+    opacity: 0.7;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px var(--flame)) drop-shadow(0 0 16px var(--hot));
+    opacity: 1;
+  }
+}
+
+/* Signal traveling through edges */
+@keyframes signal-travel {
+  0% { stroke-dashoffset: 200; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes signal-travel-long {
+  0% { stroke-dashoffset: 400; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* Cursor blink */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* CTA button glow pulse */
+@keyframes cta-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(232, 101, 10, 0.4), 0 0 40px rgba(232, 101, 10, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(240, 120, 32, 0.7), 0 0 60px rgba(232, 101, 10, 0.4), 0 0 80px rgba(255, 69, 0, 0.2);
+  }
+}
+
+/* Circuit trace travel */
+@keyframes circuit-travel {
+  0% { stroke-dashoffset: 600; opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0.3; }
+}
+
+/* Fade up */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Gradient shimmer for text */
+@keyframes text-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.8; }
+  94% { opacity: 1; }
+}
+
+/* Node appearing */
+@keyframes node-appear {
+  from { r: 0; opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Divider signal */
+@keyframes divider-signal {
+  0% { stroke-dashoffset: 1200; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes node-light {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 1; filter: drop-shadow(0 0 6px var(--ember)); }
+}
+
+.font-bebas { font-family: 'Bebas Neue', sans-serif; }
+.font-mono-jb { font-family: 'JetBrains Mono', monospace; }
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+.animate-cta-pulse {
+  animation: cta-pulse 2.5s ease-in-out infinite;
+}
+
+.animate-fade-up {
+  animation: fade-up 0.7s ease forwards;
+}
+
+.animate-text-flicker {
+  animation: text-flicker 8s ease-in-out infinite;
+}
