@@ -593,7 +593,7 @@ export default function About() {
               backgroundColor: 'var(--ember,#e8650a)', color: 'var(--void,#0a0705)',
               border: 'none', padding: '12px 22px', fontSize: '11px',
               letterSpacing: '0.1em', fontWeight: '700', cursor: 'pointer',
-              borderRadius: '2px', transition: 'all 0.2s ease', textAlign: 'left',
+              borderRadius: '2px', transition: 'all 0.2s ease', textAlign: 'left', width: '100%'
             }}
               onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--flame,#ff6b1a)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--ember,#e8650a)'; e.currentTarget.style.transform = 'translateY(0)' }}
