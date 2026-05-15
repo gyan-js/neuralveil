@@ -1,5 +1,7 @@
+
 import React, { useEffect } from 'react'
 import ControlBar from '../components/gpumemoryestimator/ControlBar'
+import Navbar from '../components/neuralveil/Navbar'
 import LayerInput from '../components/gpumemoryestimator/LayerInput.jsx'
 import MemoryChart from '../components/gpumemoryestimator/MemoryChart.jsx'
 import GPUTable from '../components/gpumemoryestimator/GPUTable.jsx'
@@ -29,7 +31,7 @@ export const GPUMemoryEstimator = () => {
           <span className="logo-neural">Neural</span>
           <span className="logo-forge">veil</span>
           <span className="logo-sep"> // </span>
-          <span className="logo-title">GPU Shape Debugger</span>
+          <span className="logo-title">GPU Memory Estimator</span>
         </div>
         <div className="app-header-right">
           <div className="app-badge">v1.0</div>
