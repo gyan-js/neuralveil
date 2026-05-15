@@ -98,8 +98,8 @@ export default function Footer() {
               {link.tag}
             </a>
           ))}
-          <span className="font-mono-jb footer-copyright" style={{ fontSize: '9px', color: 'rgba(200, 184, 154, 0.28)', letterSpacing: '0.06em' }}>
-            © {new Date().getFullYear()} — no rights reserved, no excuses accepted.
+          <span className="font-mono-jb footer-copyright" style={{ fontSize: '9px', color: 'rgba(200, 184, 154, 0.7)', letterSpacing: '0.06em' }}>
+            © {new Date().getFullYear()} — All rights reserved.
           </span>
         </div>
       </div>
