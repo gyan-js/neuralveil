@@ -135,18 +135,7 @@ function MobileSidebar({ open, onClose, tick }) {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
        
-            <div style={{
-              width: '18px', height: '18px',
-              border: '1px solid rgba(232,101,10,0.5)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <div style={{
-                width: '7px', height: '7px',
-                backgroundColor: 'var(--ember,#e8650a)',
-                animation: 'pulse-ember 2s ease-in-out infinite',
-              }} />
-            </div>
+            
             <span className="font-bebas" style={{
               fontSize: '16px', letterSpacing: '0.22em', color: 'var(--flame,#ff6b1a)',
             }}>
