@@ -10,7 +10,7 @@ const heroTypewriterLines = [
 ]
 
 const floatingMetrics = [
-  { label: 'Peak VRAM', value: '38.4 GB', delta: '-12.1 GB', positive: true },
+  { label: 'Peak VRAM', value: '38.4 GB', delta: 'ckpt saves 12.1 GB', positive: true },
   { label: 'Shape Mismatch', value: 'Layer 7', delta: 'caught', positive: true },
   { label: 'Grad Norm', value: '0.0031', delta: '↓ stable', positive: true },
   { label: 'OOM Risk', value: 'None', delta: 'FSDP safe', positive: true },
@@ -19,7 +19,7 @@ const floatingMetrics = [
 const floatingMetricsLeft = [
   { label: 'Tensor Ranks', value: '4D→2D', delta: 'projection safe', positive: true },
   { label: 'Attn Heads', value: '16 × 64', delta: 'shape verified', positive: true },
-  { label: 'Param Count', value: '87.3 M', delta: 'bf16 mapped', positive: true },
+  { label: 'Param Count', value: '124M', delta: 'bf16 mapped', positive: true },
   { label: 'Activation Mem', value: '6.2 GB', delta: 'ckpt eligible', positive: true },
 ]
 

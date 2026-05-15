@@ -43,13 +43,12 @@ const toolCards = [
 ]
 
 const timeline = [
-  { phase: 'Define', code: 'nv.trace(model, (32,3,224,224))', desc: 'Register your model and input shape' },
+  { phase: 'Define', code: 'nv.trace(model, input_shape=(32,3,224,224))', desc: 'Register your model and input shape' },
   { phase: 'Trace', code: 'trace.forward_shapes()', desc: 'WASM intercepts every tensor op' },
-  { phase: 'Inspect', code: 'trace.diff(layer=7)', desc: 'Visualise shape deltas per layer' },
-  { phase: 'Plan', code: 'trace.estimate_vram(strategy="fsdp")', desc: 'Project memory across your cluster' },
-  { phase: 'Ship', code: 'No OOM. No roulette.', desc: 'Train with confidence' },
+  { phase: 'Inspect', code: 'trace.shapes(layer=7)', desc: 'Inspect shape deltas per layer' },
+  { phase: 'Plan', code: 'trace.estimate_vram(strategy="fsdp")', desc: 'Estimate VRAM across parallel strategies' },
+  { phase: 'Ship', code: 'No OOM. No roulette.', desc: 'No surprises at scale' },
 ]
-
 function ToolCard({ tool, delay, hasIntersected }) {
   const [hovered, setHovered] = useState(false)
   return (
