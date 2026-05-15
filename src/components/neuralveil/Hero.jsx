@@ -313,26 +313,7 @@ export default function Hero() {
         </div>
 
       
-        <div style={{
-          display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '40px',
-          paddingTop: '32px', borderTop: '1px solid rgba(138,117,96,0.1)',
-          opacity: 0, animation: 'fade-up 0.6s ease 1.4s forwards',
-        }}>
-          {[
-            { icon: '⚡', text: 'WebAssembly Python runtime' },
-            { icon: '🧠', text: 'Real PyTorch shape tracing' },
-            { icon: '🔥', text: 'Multi-GPU VRAM modeling' },
-            { icon: '∅', text: 'Zero backend required' },
-          ].map((badge, i) => (
-            <div key={i} className="font-mono-jb" style={{
-              display: 'flex', alignItems: 'center', gap: '7px',
-              fontSize: '11px', color: '#5a504a', letterSpacing: '0.06em',
-            }}>
-              <span style={{ fontSize: '12px' }}>{badge.icon}</span>
-              {badge.text}
-            </div>
-          ))}
-        </div>
+        
       </div>
 
  
