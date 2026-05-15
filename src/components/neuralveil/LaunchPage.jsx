@@ -162,7 +162,7 @@ export default function LaunchPage() {
         }}
       >
         <div
-          className="font-mono-jb"
+          className="font-mono-jb font-bold"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -172,7 +172,7 @@ export default function LaunchPage() {
             padding: '6px 16px',
             fontSize: '10px',
             letterSpacing: '0.2em',
-            color: 'var(--ember)',
+            color: '#fff',
             backgroundColor: 'rgba(232, 101, 10, 0.06)',
           }}
         >
