@@ -278,6 +278,7 @@ export default function Hero() {
           <div style={{
             opacity: 0, animation: 'fade-up 0.7s ease 1.1s forwards',
           }}>
+            <a href='#launch' >
             <button
               className="font-mono-jb animate-cta-pulse"
               style={{
@@ -292,6 +293,7 @@ export default function Hero() {
             >
               ENTER THE FORGE
             </button>
+            </a>
           </div>
         </div>
 
