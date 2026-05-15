@@ -43,10 +43,10 @@ const toolCards = [
 ]
 
 const timeline = [
-  { phase: 'Define', code: 'nv.trace(model, input_shape=(32,3,224,224))', desc: 'Register your model and input shape' },
-  { phase: 'Trace', code: 'trace.forward_shapes()', desc: 'WASM intercepts every tensor op' },
-  { phase: 'Inspect', code: 'trace.shapes(layer=7)', desc: 'Inspect shape deltas per layer' },
-  { phase: 'Plan', code: 'trace.estimate_vram(strategy="fsdp")', desc: 'Estimate VRAM across parallel strategies' },
+  { phase: 'Define', code: '# define your model and let neuralveil do the rest', desc: 'Register your model and input shape' },
+  { phase: 'Trace', code: 'nv.trace(model, input_shape=(32, 3, 224, 224))', desc: 'WASM intercepts every tensor op' },
+  { phase: 'Inspect', code: 'nv.inspect(model, layer=11, capture_grads=True)', desc: 'Inspect shape deltas per layer' },
+  { phase: 'Plan', code: 'nv.estimate_vram(model, strategy="fsdp", n_gpus=8, dtype="bf16")', desc: 'Estimate VRAM across parallel strategies' },
   { phase: 'Ship', code: 'No OOM. No roulette.', desc: 'No surprises at scale' },
 ]
 function ToolCard({ tool, delay, hasIntersected }) {

@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react'
 import ForgeCircuit from '../../assets/svgs/ForgeCircuit'
 
 const codeLines = [
-  '// built for researchers, not for dashboards',
-  '// zero abstraction leaks',
+  '// catch shape errors before the cluster does',
+  '// no OOM surprises, no guessing',
   '// your model, fully understood',
 ]
 
@@ -198,7 +198,7 @@ export default function LaunchPage() {
             transition: 'all 0.8s cubic-bezier(0.34, 1.2, 0.64, 1) 0.1s',
           }}
         >
-          <span style={{ color: '#ede8e0', display: 'block' }}>START</span>
+          <span style={{ color: '#ede8e0', display: 'block' }}>LET'S</span>
           <span
             style={{
               background: 'linear-gradient(90deg, var(--hot) 0%, var(--flame) 30%, var(--spark) 70%, #fff5e0 100%)',
@@ -208,9 +208,9 @@ export default function LaunchPage() {
               display: 'block',
             }}
           >
-            UNDERSTANDING
+            CONnECT THE
           </span>
-          <span style={{ color: '#ede8e0', display: 'block' }}>YOUR MODELS.</span>
+          <span style={{ color: '#ede8e0', display: 'block' }}>DOTS</span>
         </h2>
 
         

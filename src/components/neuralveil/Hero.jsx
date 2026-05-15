@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import NeuralGraph from '../../assets/svgs/NeuralGraph'
 
 const heroTypewriterLines = [
-  'neuralveil.trace(model, input_shape=(32, 3, 224, 224))',
-  'vram_estimator.plan(strategy="fsdp", n_gpus=8, dtype="bf16")',
-  'forge.inspect(layer="transformer.blocks[11].attn", grad=True)',
-  'neuralveil.diff(model_v1, model_v2, depth="param_level")',
-  'vram_estimator.simulate(batch_size=512, seq_len=2048)',
+  'nv.trace(model, input_shape=(32, 3, 224, 224))',
+  'nv.estimate_vram(model, strategy="fsdp", n_gpus=8, dtype="bf16")',
+  'nv.inspect(model, layer=11, capture_grads=True)',
+  'nv.export_report(trace, output="report.html")',
+  'nv.simulate(model, batch_size=512, seq_len=2048)',
 ]
 
 const floatingMetrics = [
@@ -269,7 +269,7 @@ export default function Hero() {
       
         <div style={{
           display: 'flex', gap: '14px', flexWrap: 'wrap',
-          opacity: 0, animation: 'fade-up 0.7s ease 1.1s forwards',
+          opacity: 0, animation: 'fade-up 0.7s ease 1.1s forwards', marginBottom: '20px'
         }}>
           <button
             className="font-mono-jb animate-cta-pulse"
@@ -284,32 +284,7 @@ export default function Hero() {
           >
             ENTER THE FORGE
           </button>
-          <button
-            className="font-mono-jb"
-            style={{
-              backgroundColor: 'transparent', color: 'var(--ember,#e8650a)',
-              border: '1px solid rgba(232,101,10,0.45)', padding: '14px 32px',
-              fontSize: '12px', letterSpacing: '0.1em', fontWeight: '500',
-              cursor: 'pointer', borderRadius: '2px', transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(232,101,10,0.08)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.transform = 'translateY(0)' }}
-          >
-            VIEW ON GITHUB
-          </button>
-          <button
-            className="font-mono-jb"
-            style={{
-              backgroundColor: 'transparent', color: '#5a6470',
-              border: '1px solid rgba(90,100,112,0.3)', padding: '14px 28px',
-              fontSize: '12px', letterSpacing: '0.1em', fontWeight: '400',
-              cursor: 'pointer', borderRadius: '2px', transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#8a9098'; e.currentTarget.style.borderColor = 'rgba(138,144,152,0.4)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#5a6470'; e.currentTarget.style.borderColor = 'rgba(90,100,112,0.3)' }}
-          >
-            READ THE DOCS ↗
-          </button>
+          
         </div>
 
       
