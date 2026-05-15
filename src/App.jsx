@@ -1,5 +1,5 @@
 import { TensorShapeDebugger } from "./pages/TensorShapeDebugger.jsx"
-
+import { Neuralveil } from "./pages/Neuralveil.jsx"
 import { GPUMemoryEstimator } from "./pages/GPUMemoryEstimator.jsx"
 import {Routes, Route} from 'react-router'
 
@@ -11,7 +11,8 @@ export default function App() {
     <>
  
       <Routes>
-        <Route path="/" element={<GPUMemoryEstimator />} />
+        <Route path="/" element={<Neuralveil />} />
+      
       </Routes>
     </>
   )
