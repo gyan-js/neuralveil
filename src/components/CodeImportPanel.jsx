@@ -121,6 +121,29 @@ const EXAMPLES = [
           return x`,
     },
     {
+      label: 'ResNet Skip Connection',
+      fw: 'pytorch',
+      code: `import torch
+  import torch.nn as nn
+  
+  class ResBlock(nn.Module):
+      def __init__(self):
+          super().__init__()
+          self.conv1 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
+          self.bn1   = nn.BatchNorm2d(64)
+          self.conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
+          self.bn2   = nn.BatchNorm2d(64)
+  
+      def forward(self, x):
+          identity = x
+          out = self.conv1(x)
+          out = self.bn1(out)
+          out = self.conv2(out)
+          out = self.bn2(out)
+          out = out + identity   # skip connection → Merge (ADD)
+          return out`,
+    },
+    {
       label: 'Transformer Block',
       fw: 'pytorch',
       code: `import torch
@@ -145,6 +168,30 @@ const EXAMPLES = [
           x = self.drop(x)
           x = self.fc2(x)
           x = self.ln2(x)
+          return x`,
+    },
+    {
+      label: 'GRU Sequence Model',
+      fw: 'pytorch',
+      code: `import torch
+  import torch.nn as nn
+  
+  class GRUClassifier(nn.Module):
+      def __init__(self):
+          super().__init__()
+          self.embed = nn.Embedding(8000, 128)
+          self.gru   = nn.GRU(input_size=128, hidden_size=256,
+                              num_layers=2, batch_first=True,
+                              bidirectional=True, dropout=0.3)
+          self.drop  = nn.Dropout(p=0.3)
+          self.fc    = nn.Linear(512, 10)   # 256 * 2 for bidirectional
+  
+      def forward(self, x):
+          x = self.embed(x)
+          x, _ = self.gru(x)
+          x = x[:, -1, :]   # last timestep
+          x = self.drop(x)
+          x = self.fc(x)
           return x`,
     },
     {
@@ -457,7 +504,7 @@ class MyModel(nn.Module):
               • Custom classes and Lambda layers → Unknown (warning shown)<br />
               • Variable references in args → placeholder value (warning shown)<br />
               • Activation-only layers (ReLU, Softmax, etc.) → skipped<br />
-              • Skip connections → auto-placed Merge node (heuristic)<br />
+              • Skip connections traced via DAG analysis → Merge node inserted<br />
               • Unsupported layers do not block import
             </div>
           </div>
