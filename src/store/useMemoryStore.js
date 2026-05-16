@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { PRECISION_BYTES } from '../engine/precisionBytes.js'
-import { runMemoryPipeline } from '../engine/memoryEngine.js'
+import { runMemoryPipeline, sweepBatchSizes } from '../engine/memoryEngine.js'
 import { LAYER_TYPE_MAP } from '../constants/layerTypes.js'
 
 let _nextId = 1
@@ -8,15 +8,18 @@ const nextId = () => _nextId++
 
 function recalculate(state) {
   const precisionBytes = PRECISION_BYTES[state.precision]
-  const results = runMemoryPipeline({
+  const pipelineConfig = {
     layers: state.layers,
     batchSize: state.batchSize,
     precisionBytes,
     mode: state.mode,
     optimizerType: state.optimizerType,
     includeOverhead: state.includeOverhead,
-  })
-  return { results }
+    gradientCheckpointing: state.gradientCheckpointing,
+  }
+  const results = runMemoryPipeline(pipelineConfig)
+  const sweepResults = sweepBatchSizes(pipelineConfig)
+  return { results, sweepResults }
 }
 
 const useMemoryStore = create((set, get) => ({
@@ -24,10 +27,12 @@ const useMemoryStore = create((set, get) => ({
   layers: [],
   batchSize: 1,
   precision: 'fp16',
-  mode: 'inference',        // 'inference' | 'training'
-  optimizerType: 'adam',    // 'adam' | 'sgd'
+  mode: 'inference',        
+  optimizerType: 'adam',  
   includeOverhead: true,
+  gradientCheckpointing: false,  
   results: null,
+  sweepResults: [],            
 
   addLayer(type) {
     const def = LAYER_TYPE_MAP[type]
@@ -92,6 +97,14 @@ const useMemoryStore = create((set, get) => ({
   setIncludeOverhead(v) {
     set((s) => {
       const next = { ...s, includeOverhead: v }
+      return { ...next, ...recalculate(next) }
+    })
+  },
+
+  // V2
+  setGradientCheckpointing(v) {
+    set((s) => {
+      const next = { ...s, gradientCheckpointing: v }
       return { ...next, ...recalculate(next) }
     })
   },
