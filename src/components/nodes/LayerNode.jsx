@@ -183,6 +183,68 @@ export default function LayerNode({ id, data }) {
           </div>
         )
       }
+      case 'ConvTranspose2D':
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="Filters" value={config.filters ?? 64} />
+            <ParamChip label="Kernel"  value={`${config.kernelSize ?? 2}×${config.kernelSize ?? 2}`} />
+            <ParamChip label="Stride"  value={config.stride ?? 2} />
+            <ParamChip label="Pad"     value={config.padding ?? 0} />
+          </div>
+        )
+      case 'AvgPool2D':
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="Kernel" value={`${config.kernelSize ?? 2}×${config.kernelSize ?? 2}`} />
+            <ParamChip label="Stride" value={config.stride ?? 2} />
+            <ParamChip label="Pad"    value={config.padding ?? 0} />
+          </div>
+        )
+      case 'GlobalAvgPool':
+        return (
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>
+            collapses H×W → scalar per channel
+          </div>
+        )
+      case 'AdaptiveAvgPool':
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="Out H" value={config.outputH ?? 1} />
+            <ParamChip label="Out W" value={config.outputW ?? 1} />
+          </div>
+        )
+      case 'GroupNorm':
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="Groups" value={config.numGroups ?? 32} />
+            <ParamChip label="eps"    value={config.eps?.toExponential(0) ?? '1e-5'} />
+          </div>
+        )
+      case 'Upsample':
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="Scale" value={config.scaleFactor ?? 2} />
+            <ParamChip label="Mode"  value={config.mode ?? 'nearest'} />
+          </div>
+        )
+      case 'ZeroPad2D':
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="Pad H" value={config.padH ?? 1} />
+            <ParamChip label="Pad W" value={config.padW ?? 1} />
+          </div>
+        )
+      case 'GRU': {
+        const { hidden_size = 256, num_layers = 1, bidirectional = false, return_sequences = true } = config
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+            <ParamChip label="hidden"  value={hidden_size} />
+            <ParamChip label="layers"  value={num_layers} />
+            <ParamChip label="bidir"   value={bidirectional ? 'YES' : 'NO'} />
+            <ParamChip label="ret_seq" value={return_sequences ? 'YES' : 'NO'} />
+          </div>
+        )
+      }
       default:
         return null
     }
