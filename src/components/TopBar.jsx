@@ -2,6 +2,7 @@ import { useGraphStore } from '../store/useGraphStore.js'
 import { exportToPyTorch, exportToKeras, exportToJSON } from '../engine/exportEngine.js'
 import { Download, Save, Upload, Code2, Link, ChevronDown, Cpu, Layers, FileCode2 } from 'lucide-react'
 import { useRef, useState, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import '../styles/globals.css'
 
@@ -123,24 +124,34 @@ const PRESETS = [
 
 // ─── LOGO ─────────────────────────────────────────────────────────────────────
 
-function LogoIcon() {
+function ForgeSpark() {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
       <style>{`
-        @keyframes nodePulse {
-          0%, 100% { r: 3; opacity: 1; }
-          50% { r: 3.8; opacity: 0.7; }
+        @keyframes outerRing {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 1; }
         }
-        .lc1 { animation: nodePulse 1.8s ease-in-out infinite; }
-        .lc2 { animation: nodePulse 1.8s ease-in-out 0.6s infinite; }
-        .lc3 { animation: nodePulse 1.8s ease-in-out 1.2s infinite; }
+        @keyframes innerDot {
+          0%, 100% { r: 2; }
+          50% { r: 2.6; }
+        }
+        @keyframes spikePulse {
+          0%, 100% { opacity: 0.6; stroke-width: 1.5; }
+          50% { opacity: 1; stroke-width: 2; }
+        }
+        .outer-ring { animation: outerRing 2.4s ease-in-out infinite; }
+        .inner-dot  { animation: innerDot 2.4s ease-in-out infinite; }
+        .spike      { animation: spikePulse 2.4s ease-in-out infinite; }
       `}</style>
-      <line x1="4" y1="4" x2="11" y2="18" stroke="#00E5FF" strokeWidth="1.2" strokeOpacity="0.5" />
-      <line x1="18" y1="4" x2="11" y2="18" stroke="#00E5FF" strokeWidth="1.2" strokeOpacity="0.5" />
-      <line x1="4" y1="4" x2="18" y2="4" stroke="#00E5FF" strokeWidth="1.2" strokeOpacity="0.5" />
-      <circle className="lc1" cx="4" cy="4" r="3" fill="#00E5FF" />
-      <circle className="lc2" cx="18" cy="4" r="3" fill="#00E5FF" />
-      <circle className="lc3" cx="11" cy="18" r="3" fill="#00E5FF" />
+      <circle className="outer-ring" cx="11" cy="11" r="4" fill="none" stroke="#c9a84c" strokeWidth="1" />
+      <circle className="inner-dot" cx="11" cy="11" r="2" fill="#c9a84c" opacity="0.9" />
+      <line className="spike" x1="11" y1="1"  x2="11" y2="5"  stroke="#ff5e1a" strokeLinecap="round" />
+      <line className="spike" x1="11" y1="17" x2="11" y2="21" stroke="#ff5e1a" strokeLinecap="round" />
+      <line className="spike" x1="1"  y1="11" x2="5"  y2="11" stroke="#ff5e1a" strokeLinecap="round" />
+      <line className="spike" x1="17" y1="11" x2="21" y2="11" stroke="#ff5e1a" strokeLinecap="round" />
+      <line x1="3.5"  y1="3.5"  x2="6.5"  y2="6.5"  stroke="#c9a84c" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      <line x1="15.5" y1="15.5" x2="18.5" y2="18.5" stroke="#c9a84c" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
     </svg>
   )
 }
@@ -154,43 +165,83 @@ function FormatToggle() {
 
   return (
     <div
-      className="format-toggle"
       onClick={toggleFormat}
-      style={{ width: 110, height: 28, cursor: 'pointer', userSelect: 'none', position: 'relative' }}
       title="Toggle tensor format"
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        width: 108,
+        height: 26,
+        background: 'rgba(0,229,255,0.04)',
+        border: '1px solid rgba(0,229,255,0.18)',
+        borderRadius: 5,
+        cursor: 'pointer',
+        userSelect: 'none',
+        overflow: 'hidden',
+      }}
     >
-      <div
-        className="format-thumb"
-        style={{ left: isNHWC ? '50%' : '2px', width: 'calc(50% - 2px)' }}
-      />
-      <div style={{ display: 'flex', width: '100%', position: 'relative', zIndex: 1 }}>
-        {['NCHW', 'NHWC'].map(f => (
-          <div key={f} style={{
-            flex: 1, textAlign: 'center', padding: '5px 0',
-            fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 600,
-            letterSpacing: '0.04em',
-            color: format === f ? '#00E5FF' : 'rgba(255,255,255,0.3)',
-            transition: 'color 0.2s ease',
-          }}>
-            {f}
-          </div>
-        ))}
-      </div>
+      {/* sliding pill */}
+      <div style={{
+        position: 'absolute',
+        top: 2, bottom: 2,
+        left: isNHWC ? 'calc(50% + 2px)' : 2,
+        width: 'calc(50% - 4px)',
+        background: 'rgba(0,229,255,0.12)',
+        border: '1px solid rgba(0,229,255,0.35)',
+        borderRadius: 3,
+        transition: 'left 0.22s cubic-bezier(.4,0,.2,1)',
+        boxShadow: '0 0 8px rgba(0,229,255,0.18)',
+      }} />
+      {['NCHW', 'NHWC'].map(f => (
+        <div key={f} style={{
+          flex: 1, textAlign: 'center',
+          fontFamily: 'JetBrains Mono, monospace',
+          fontSize: 9, fontWeight: 700,
+          letterSpacing: '0.08em',
+          color: format === f ? '#00E5FF' : 'rgba(255,255,255,0.25)',
+          transition: 'color 0.2s ease',
+          position: 'relative', zIndex: 1,
+        }}>
+          {f}
+        </div>
+      ))}
     </div>
   )
 }
 
 // ─── PRESETS DROPDOWN ─────────────────────────────────────────────────────────
+// Uses a React portal so the dropdown renders into document.body,
+// fully escaping any parent overflow:hidden or stacking context.
 
 function PresetsDropdown() {
   const loadFromJSON = useGraphStore(s => s.loadFromJSON)
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(null)
-  const ref = useRef(null)
+  const btnRef = useRef(null)
+  const dropRef = useRef(null)
+  const [dropPos, setDropPos] = useState({ top: 0, right: 0 })
+
+  // Position dropdown relative to button using fixed coords
+  const openDropdown = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setDropPos({
+        top: r.bottom + 6,
+        right: window.innerWidth - r.right,
+      })
+    }
+    setOpen(v => !v)
+  }
 
   useEffect(() => {
     if (!open) return
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const handler = (e) => {
+      if (
+        btnRef.current && !btnRef.current.contains(e.target) &&
+        dropRef.current && !dropRef.current.contains(e.target)
+      ) setOpen(false)
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
@@ -202,98 +253,110 @@ function PresetsDropdown() {
     setTimeout(() => setLoaded(null), 1800)
   }
 
+  const dropdown = open ? createPortal(
+    <div
+      ref={dropRef}
+      style={{
+        position: 'fixed',
+        top: dropPos.top,
+        right: dropPos.right,
+        background: '#080C14',
+        border: '1px solid rgba(0,229,255,0.18)',
+        borderRadius: 8,
+        width: 300,
+        zIndex: 99999,
+        boxShadow: '0 16px 56px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,229,255,0.05)',
+      }}
+    >
+      <div style={{
+        padding: '9px 14px 8px',
+        borderBottom: '1px solid rgba(0,229,255,0.07)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{
+          fontFamily: 'JetBrains Mono, monospace',
+          fontWeight: 700, fontSize: 9,
+          color: '#00E5FF', letterSpacing: '0.2em', textTransform: 'uppercase',
+        }}>
+          // ARCHITECTURE PRESETS
+        </span>
+        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 7.5, color: 'rgba(255,255,255,0.18)', letterSpacing: '0.04em' }}>
+          {PRESETS.length} templates
+        </span>
+      </div>
+
+      <div style={{ padding: '6px 8px 8px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            onClick={() => handleLoad(preset)}
+            style={{
+              background: loaded === preset.id ? `${preset.color}10` : 'transparent',
+              border: `1px solid ${loaded === preset.id ? `${preset.color}40` : 'rgba(255,255,255,0.05)'}`,
+              borderLeft: `2px solid ${preset.color}`,
+              borderRadius: 5,
+              padding: '8px 11px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.14s ease',
+              display: 'flex', flexDirection: 'column', gap: 3,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = `${preset.color}0d`
+              e.currentTarget.style.borderColor = `${preset.color}35`
+              e.currentTarget.style.boxShadow = `inset 0 0 12px ${preset.color}06`
+            }}
+            onMouseLeave={e => {
+              if (loaded !== preset.id) {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
+                e.currentTarget.style.boxShadow = 'none'
+              }
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{
+                fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 10.5,
+                color: loaded === preset.id ? preset.color : 'rgba(255,255,255,0.85)',
+                letterSpacing: '0.03em',
+                transition: 'color 0.15s ease',
+              }}>
+                {preset.label}
+              </span>
+              {loaded === preset.id && (
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 7.5, color: preset.color, letterSpacing: '0.08em' }}>
+                  ✓ LOADED
+                </span>
+              )}
+            </div>
+            <span style={{
+              fontFamily: 'JetBrains Mono, monospace', fontSize: 8,
+              color: 'rgba(255,255,255,0.25)', lineHeight: 1.5, letterSpacing: '0.02em',
+            }}>
+              {preset.desc}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>,
+    document.body
+  ) : null
+
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' }}>
       <button
-        className="btn-ghost"
-        onClick={() => setOpen(v => !v)}
-        style={{ gap: 5 }}
+        ref={btnRef}
+        className="nv-btn"
+        onClick={openDropdown}
       >
-        <Layers size={12} />
-        Presets
+        <Layers size={11} />
+        <span>PRESETS</span>
         <ChevronDown
-          size={10}
-          style={{ transition: 'transform 0.15s ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          size={9}
+          style={{ transition: 'transform 0.18s ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', opacity: 0.6 }}
         />
       </button>
-
-      {open && (
-        <div style={{
-          position: 'absolute',
-          top: 'calc(100% + 8px)',
-          right: 0,
-          background: '#0D1526',
-          border: '1px solid rgba(0,229,255,0.18)',
-          borderRadius: 10,
-          width: 290,
-          zIndex: 500,
-          overflow: 'hidden',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 20px rgba(0,229,255,0.06)',
-        }}>
-          <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid rgba(0,229,255,0.07)' }}>
-            <span style={{
-              fontFamily: 'Syne', fontWeight: 700, fontSize: 9,
-              color: '#00E5FF', letterSpacing: '0.18em', textTransform: 'uppercase',
-            }}>
-              ARCHITECTURE PRESETS
-            </span>
-            <div style={{ fontFamily: 'JetBrains Mono', fontSize: 8, color: 'rgba(255,255,255,0.2)', marginTop: 3 }}>
-              One-click load — replaces current graph
-            </div>
-          </div>
-
-          <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {PRESETS.map(preset => (
-              <button
-                key={preset.id}
-                onClick={() => handleLoad(preset)}
-                style={{
-                  background: loaded === preset.id ? `${preset.color}12` : 'transparent',
-                  border: `1px solid ${loaded === preset.id ? `${preset.color}50` : 'rgba(255,255,255,0.06)'}`,
-                  borderLeft: `2px solid ${preset.color}`,
-                  borderRadius: 7,
-                  padding: '9px 12px',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.15s ease',
-                  display: 'flex', flexDirection: 'column', gap: 3,
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = `${preset.color}0a`
-                  e.currentTarget.style.borderColor = `${preset.color}40`
-                }}
-                onMouseLeave={e => {
-                  if (loaded !== preset.id) {
-                    e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'
-                  }
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{
-                    fontFamily: 'Syne', fontWeight: 700, fontSize: 11,
-                    color: loaded === preset.id ? preset.color : '#fff',
-                    transition: 'color 0.15s ease',
-                  }}>
-                    {preset.label}
-                  </span>
-                  {loaded === preset.id && (
-                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 8, color: preset.color }}>
-                      ✓ LOADED
-                    </span>
-                  )}
-                </div>
-                <span style={{
-                  fontFamily: 'JetBrains Mono', fontSize: 8.5,
-                  color: 'rgba(255,255,255,0.3)', lineHeight: 1.4,
-                }}>
-                  {preset.desc}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {dropdown}
     </div>
   )
 }
@@ -321,12 +384,12 @@ function ExportModal({ onClose, nodes, edges, inputShape }) {
   const phaseLabels = ['Copy to clipboard', 'Analyzing graph...', 'Generating code...', '✓ Copied!']
 
   const tabStyle = (t) => ({
-    fontFamily: 'Syne', fontSize: 11, fontWeight: 700,
-    letterSpacing: '0.04em', padding: '6px 16px',
-    cursor: 'pointer', border: 'none', borderRadius: 6,
+    fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700,
+    letterSpacing: '0.08em', padding: '6px 18px', textTransform: 'uppercase',
+    cursor: 'pointer', border: 'none', borderRadius: 0,
     transition: 'all 0.15s ease',
-    background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent',
-    color: tab === t ? '#00E5FF' : 'rgba(255,255,255,0.35)',
+    background: 'transparent',
+    color: tab === t ? '#00E5FF' : 'rgba(255,255,255,0.3)',
     borderBottom: tab === t ? '2px solid #00E5FF' : '2px solid transparent',
   })
 
@@ -335,25 +398,27 @@ function ExportModal({ onClose, nodes, edges, inputShape }) {
       <div className="export-modal" onClick={e => e.stopPropagation()}>
         <div style={{ padding: '14px 20px 0', borderBottom: '1px solid rgba(0,229,255,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Code2 size={16} color="#00E5FF" />
-              <span style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 14, color: '#fff' }}>
-                Export Code
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Code2 size={14} color="#00E5FF" />
+              <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 13, color: '#fff', letterSpacing: '0.06em' }}>
+                EXPORT CODE
               </span>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <button className="btn-ghost" onClick={handleCopy} style={{ minWidth: 160, justifyContent: 'center' }}>
+              <button className="nv-btn" onClick={handleCopy} style={{ minWidth: 160, justifyContent: 'center' }}>
                 {phaseLabels[copyPhase]}
               </button>
               <button
                 onClick={onClose}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', fontSize: 18, lineHeight: 1 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', fontSize: 20, lineHeight: 1, transition: 'color 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
               >
                 ×
               </button>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 0 }}>
             <button style={tabStyle('pytorch')} onClick={() => setTab('pytorch')}>PyTorch</button>
             <button style={tabStyle('keras')} onClick={() => setTab('keras')}>Keras / TF</button>
           </div>
@@ -384,65 +449,47 @@ function CopyLinkButton() {
 
   return (
     <button
-      className="btn-ghost"
+      className="nv-btn"
       onClick={handleCopy}
       title="Copy shareable link for this graph"
-      style={{ gap: 6, minWidth: 110, justifyContent: 'center' }}
     >
-      <Link size={12} />
-      {phase === 1 ? '✓ Link copied!' : 'Copy Link'}
+      <Link size={11} />
+      <span>{phase === 1 ? '✓ COPIED' : 'COPY LINK'}</span>
     </button>
   )
 }
 
+// ─── IMPORT CODE BUTTON ───────────────────────────────────────────────────────
 
 function ImportCodeButton() {
-  const openCodeImport  = useGraphStore(s => s.openCodeImport)
-  const importWarnings  = useGraphStore(s => s.importWarnings)
+  const openCodeImport = useGraphStore(s => s.openCodeImport)
+  const importWarnings = useGraphStore(s => s.importWarnings)
   const [justImported, setJustImported] = useState(false)
 
-  
   useEffect(() => {
-    if (importWarnings.length > 0 || (importWarnings.length === 0 && justImported)) {
-    
-    }
+    if (importWarnings.length > 0 || (importWarnings.length === 0 && justImported)) {}
   }, [importWarnings])
 
   return (
     <button
-      className="btn-ghost"
+      className="nv-btn nv-btn--accent"
       onClick={openCodeImport}
       title="Import graph from PyTorch or Keras code"
-      style={{
-        gap: 6,
-        borderColor: 'rgba(57,255,20,0.35)',
-        color: '#39FF14',
-        position: 'relative',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.borderColor = 'rgba(57,255,20,0.7)'
-        e.currentTarget.style.background = 'rgba(57,255,20,0.07)'
-        e.currentTarget.style.boxShadow = '0 0 14px rgba(57,255,20,0.12)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = 'rgba(57,255,20,0.35)'
-        e.currentTarget.style.background = 'transparent'
-        e.currentTarget.style.boxShadow = 'none'
-      }}
+      style={{ position: 'relative' }}
     >
-      <FileCode2 size={12} />
-      Import Code
-      {/* NEW badge */}
+      <FileCode2 size={11} />
+      <span>IMPORT CODE</span>
       <span style={{
         position: 'absolute',
-        top: -6, right: -6,
+        top: -5, right: -5,
         background: '#39FF14',
         color: '#000',
-        fontFamily: 'Syne', fontSize: 6, fontWeight: 800,
-        letterSpacing: '0.08em',
+        fontFamily: 'JetBrains Mono, monospace',
+        fontSize: 6, fontWeight: 800,
+        letterSpacing: '0.1em',
         padding: '1px 4px',
-        borderRadius: 3,
-        lineHeight: 1.4,
+        borderRadius: 2,
+        lineHeight: 1.5,
       }}>
         NEW
       </span>
@@ -450,7 +497,7 @@ function ImportCodeButton() {
   )
 }
 
-
+// ─── TOPBAR ───────────────────────────────────────────────────────────────────
 
 export default function TopBar() {
   const nodes = useGraphStore(s => s.nodes)
@@ -474,116 +521,264 @@ export default function TopBar() {
   return (
     <>
       <style>{`
-        .btn-ghost {
-          background: transparent;
-          border: 1px solid rgba(0, 229, 255, 0.3);
-          color: var(--cyan);
-          font-family: 'Syne', sans-serif;
-          font-size: 0.75rem;
-          font-weight: 600;
-          letter-spacing: 0.05em;
-          padding: 5px 14px;
-          border-radius: 6px;
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@600;700;800&display=swap');
+
+        @keyframes scanline {
+          0%   { transform: translateY(-100%); }
+          100% { transform: translateY(600%); }
+        }
+
+        @keyframes borderGlow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,255,0); }
+          50% { box-shadow: 0 0 14px 0 rgba(0,229,255,0.07); }
+        }
+
+        .nv-topbar {
+          position: relative;
+          height: 50px;
+          background: #060A11;
+          display: flex;
+          align-items: center;
+          padding: 0 18px;
+          gap: 10px;
+          flex-shrink: 0;
+          z-index: 100;
+
+          animation: borderGlow 4s ease-in-out infinite;
+        }
+
+        /* subtle scanline sweep */
+        .nv-topbar::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 3px,
+            rgba(0,229,255,0.012) 3px,
+            rgba(0,229,255,0.012) 4px
+          );
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* animated sweep light */
+        .nv-topbar::after {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent 0%, rgba(0,229,255,0.5) 50%, transparent 100%);
+          animation: scanline 6s linear infinite;
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        .nv-topbar-bottom-border {
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 1px;
+          background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(0,229,255,0.12) 20%,
+            rgba(0,229,255,0.22) 50%,
+            rgba(0,229,255,0.12) 80%,
+            transparent 100%
+          );
+        }
+
+        .nv-topbar-content {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          width: 100%;
+          gap: 10px;
+        }
+
+        /* ─ Logo ─ */
+        .nv-logo {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          text-decoration: none;
           cursor: pointer;
-          transition: all 0.15s ease;
-          display: flex; align-items: center; gap: 6px;
+          flex-shrink: 0;
         }
-        .btn-ghost:hover {
-          background: rgba(0,229,255,0.08);
-          border-color: rgba(0,229,255,0.7);
-          box-shadow: 0 0 12px rgba(0,229,255,0.15);
+
+        .nv-logo-wordmark {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
         }
-        .btn-ghost.danger {
-          border-color: rgba(255,107,53,0.3);
-          color: var(--error);
+
+        .nv-logo-name {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.22em;
+          color: #fff;
+          line-height: 1;
         }
-        .btn-ghost.danger:hover {
-          background: rgba(255,107,53,0.08);
-          border-color: rgba(255,107,53,0.7);
-          box-shadow: 0 0 12px rgba(255,107,53,0.15);
+
+        .nv-logo-name strong {
+          color: #00E5FF;
+        }
+
+        .nv-logo-version {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 7px;
+          font-weight: 600;
+          color: rgba(0,229,255,0.35);
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          line-height: 1;
+        }
+
+   
+        .nv-divider {
+          width: 1px;
+          height: 18px;
+          background: linear-gradient(180deg, transparent, rgba(0,229,255,0.2), transparent);
+          flex-shrink: 0;
+        }
+
+       
+        .nv-section-tag {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 8px;
+          font-weight: 700;
+          color: rgba(0,229,255,0.3);
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          user-select: none;
+        }
+        .nv-btn {
+          background: transparent;
+          border: 1px solid rgba(0,229,255,0.18);
+          color: rgba(255,255,255,0.55);
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          padding: 0 12px;
+          height: 28px;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.16s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          white-space: nowrap;
+          text-transform: uppercase;
+          flex-shrink: 0;
+        }
+
+        .nv-btn:hover {
+          background: rgba(0,229,255,0.06);
+          border-color: rgba(0,229,255,0.45);
+          color: #00E5FF;
+          box-shadow: 0 0 10px rgba(0,229,255,0.1), inset 0 0 8px rgba(0,229,255,0.04);
+        }
+
+        /* accent green for Import */
+        .nv-btn--accent {
+          border-color: rgba(57,255,20,0.25);
+          color: rgba(57,255,20,0.7);
+        }
+
+        .nv-btn--accent:hover {
+          background: rgba(57,255,20,0.06);
+          border-color: rgba(57,255,20,0.5);
+          color: #39FF14;
+          box-shadow: 0 0 10px rgba(57,255,20,0.1), inset 0 0 8px rgba(57,255,20,0.04);
+        }
+
+        /* ─ Group container ─ */
+        .nv-group {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 2px;
         }
       `}</style>
 
-      <div style={{
-        height: 52,
-        background: '#080C14',
-        borderBottom: '1px solid rgba(0,229,255,0.07)',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 20px',
-        gap: 12,
-        flexShrink: 0,
-        position: 'relative',
-        zIndex: 100,
-      }}>
-        {/* Logo */}
-        <a onClick={() => navigate('/')} className="flex items-center gap-3 group">
-          <ForgeSpark />
-          <span
-            className="font-bebas text-xl tracking-widest text-gold transition-all duration-300 group-hover:text-gold2"
-            style={{ letterSpacing: '0.15em' }}
-          >
-            NEURALVEIL
-          </span>
-          <span
-            className="font-mono-tech text-xs px-2 py-0.5 border rounded"
-            style={{
-              color: 'var(--text-dim)',
-              borderColor: 'rgba(201,168,76,0.2)',
-              fontSize: '0.6rem',
-            }}
-          >
-            V3.0.1-GAMMA
-          </span>
-        </a>
+      <div className="nv-topbar">
+        <div className="nv-topbar-bottom-border" />
 
-        <div style={{ width: 1, height: 20, background: 'rgba(0,229,255,0.1)' }} />
+        <div className="nv-topbar-content">
 
-        <FormatToggle />
+          {/* ── Logo ── */}
+          <a className="nv-logo" onClick={() => navigate('/')}>
+        
+            <div className="nv-logo-wordmark">
+              <div className="nv-logo-name">
+                <strong>NEURAL</strong>VEIL
+              </div>
+              <div className="nv-logo-version">V3.0.1-GAMMA // GRAPH EDITOR</div>
+            </div>
+          </a>
 
-        <div style={{ flex: 1 }} />
+          <div className="nv-divider" />
 
-        <PresetsDropdown />
+          {/* ── Format Toggle ── */}
+          <FormatToggle />
 
-        <div style={{ width: 1, height: 20, background: 'rgba(0,229,255,0.07)' }} />
+          {/* ── Spacer ── */}
+          <div style={{ flex: 1 }} />
 
-       
-        <ImportCodeButton />
+          {/* ── Presets ── */}
+          <div className="nv-group">
+            <span className="nv-section-tag">// arch</span>
+            <PresetsDropdown />
+          </div>
 
-        <button className="btn-ghost" onClick={() => setShowExport(true)}>
-          <Code2 size={12} />
-          Export Code
-        </button>
+          <div className="nv-divider" />
 
-        <CopyLinkButton />
+          {/* ── Code actions ── */}
+          <div className="nv-group">
+            <span className="nv-section-tag">// code</span>
+            <ImportCodeButton />
+            <button className="nv-btn" onClick={() => setShowExport(true)}>
+              <Code2 size={11} />
+              <span>EXPORT CODE</span>
+            </button>
+          </div>
 
-        <div style={{ width: 1, height: 20, background: 'rgba(0,229,255,0.07)' }} />
+          <div className="nv-divider" />
 
-        <button className="btn-ghost" onClick={() => {
-          const exportNodes = nodes.map(n => ({
-            id: n.id, type: n.data?.layerType,
-            position: n.position, config: n.data?.config || {},
-          }))
-          const json = JSON.stringify({
-            version: '1.0', format, inputShape,
-            nodes: exportNodes,
-            edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target })),
-          }, null, 2)
-          const blob = new Blob([json], { type: 'application/json' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url; a.download = 'model-graph.json'; a.click()
-          URL.revokeObjectURL(url)
-        }}>
-          <Save size={12} />
-          Save JSON
-        </button>
+          
+          <div className="nv-group">
+            <span className="nv-section-tag">// io</span>
+            <CopyLinkButton />
+            <button className="nv-btn" onClick={() => {
+              const exportNodes = nodes.map(n => ({
+                id: n.id, type: n.data?.layerType,
+                position: n.position, config: n.data?.config || {},
+              }))
+              const json = JSON.stringify({
+                version: '1.0', format, inputShape,
+                nodes: exportNodes,
+                edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target })),
+              }, null, 2)
+              const blob = new Blob([json], { type: 'application/json' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url; a.download = 'model-graph.json'; a.click()
+              URL.revokeObjectURL(url)
+            }}>
+              <Save size={11} />
+              <span>SAVE JSON</span>
+            </button>
+            <button className="nv-btn" onClick={() => fileRef.current?.click()}>
+              <Upload size={11} />
+              <span>LOAD JSON</span>
+            </button>
+          </div>
 
-        <button className="btn-ghost" onClick={() => fileRef.current?.click()}>
-          <Upload size={12} />
-          Load JSON
-        </button>
-        <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoadJSON} />
+          <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoadJSON} />
+        </div>
       </div>
 
       {showExport && (
@@ -595,20 +790,5 @@ export default function TopBar() {
         />
       )}
     </>
-  )
-}
-
-function ForgeSpark() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" className="animate-pulse-slow">
-      <circle cx="11" cy="11" r="4" fill="none" stroke="#c9a84c" strokeWidth="1" opacity="0.6" />
-      <circle cx="11" cy="11" r="2" fill="#c9a84c" opacity="0.9" />
-      <line x1="11" y1="1" x2="11" y2="5" stroke="#ff5e1a" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="11" y1="17" x2="11" y2="21" stroke="#ff5e1a" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="1" y1="11" x2="5" y2="11" stroke="#ff5e1a" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="17" y1="11" x2="21" y2="11" stroke="#ff5e1a" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="3.5" y1="3.5" x2="6.5" y2="6.5" stroke="#c9a84c" strokeWidth="1" strokeLinecap="round" opacity="0.5" />
-      <line x1="15.5" y1="15.5" x2="18.5" y2="18.5" stroke="#c9a84c" strokeWidth="1" strokeLinecap="round" opacity="0.5" />
-    </svg>
   )
 }
