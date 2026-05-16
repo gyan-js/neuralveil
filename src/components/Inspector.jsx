@@ -448,6 +448,168 @@ function MHAInspector({ node, result, format, updateNodeConfig }) {
 
 
 
+// ─── GRU INSPECTOR ───────────────────────────────────────────────────────────
+// Mirrors LSTMInspector — GRU has the same shape contract but fewer params.
+
+function GRUInspector({ node, result, format, updateNodeConfig }) {
+  const config      = node.data?.config || {}
+  const inputShape  = result?.inputShape
+  const outputShape = result?.outputShape
+  const hasError    = !!result?.error
+
+  const hidden_size      = config.hidden_size      ?? 256
+  const num_layers       = config.num_layers       ?? 1
+  const bidirectional    = config.bidirectional    ?? false
+  const return_sequences = config.return_sequences ?? true
+
+  const update = (key, val) => updateNodeConfig(node.id, { [key]: val })
+
+  const ToggleBtn = ({ label, active, onClick, activeColor }) => (
+    <button onClick={onClick} style={{
+      flex: 1,
+      fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 600,
+      padding: '7px 0', borderRadius: 6, cursor: 'pointer',
+      border: `1px solid ${active ? activeColor + 'aa' : 'rgba(255,255,255,0.1)'}`,
+      background: active ? activeColor + '20' : 'transparent',
+      color: active ? activeColor : 'rgba(255,255,255,0.3)',
+      transition: 'all 0.15s ease',
+    }}>{label}</button>
+  )
+
+  return (
+    <div>
+      <div style={{
+        background: 'rgba(234,179,8,0.05)', border: '1px solid rgba(234,179,8,0.15)',
+        borderRadius: 7, padding: '8px 10px', marginBottom: 16,
+        fontFamily: 'JetBrains Mono', fontSize: 9, lineHeight: 1.7,
+        color: 'rgba(234,179,8,0.8)',
+      }}>
+        <div>Input: [B, seq_len, input_size]</div>
+        <div>Output: {return_sequences
+          ? `[B, seq_len, ${bidirectional ? hidden_size * 2 : hidden_size}]`
+          : `[B, ${bidirectional ? hidden_size * 2 : hidden_size}]`}
+        </div>
+        {bidirectional && <div style={{ fontSize: 8, marginTop: 3, color: 'rgba(234,179,8,0.5)' }}>
+          Bidirectional: hidden × 2 = {hidden_size * 2}
+        </div>}
+        <div style={{ fontSize: 8, marginTop: 3, color: 'rgba(234,179,8,0.45)' }}>
+          GRU uses reset + update gates — faster than LSTM, ~⅔ the params.
+        </div>
+      </div>
+
+      <ParamRow label="hidden_size" value={hidden_size} min={16} max={2048} step={16}
+        onChange={v => update('hidden_size', Math.round(v))} />
+      <ParamRow label="num_layers" value={num_layers} min={1} max={8} step={1}
+        onChange={v => update('num_layers', Math.round(v))} />
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+          Bidirectional
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <ToggleBtn label="OFF" active={!bidirectional} activeColor="#EAB308"
+            onClick={() => update('bidirectional', false)} />
+          <ToggleBtn label="ON"  active={bidirectional}  activeColor="#EAB308"
+            onClick={() => update('bidirectional', true)} />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+          Return Sequences
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <ToggleBtn label="LAST" active={!return_sequences} activeColor="#A855F7"
+            onClick={() => update('return_sequences', false)} />
+          <ToggleBtn label="ALL"  active={return_sequences}  activeColor="#A855F7"
+            onClick={() => update('return_sequences', true)} />
+        </div>
+        <div style={{ marginTop: 6, fontFamily: 'JetBrains Mono', fontSize: 8, color: 'rgba(255,255,255,0.25)', lineHeight: 1.5 }}>
+          {return_sequences ? 'ALL: keeps every timestep → 3D output' : 'LAST: only final timestep → 2D output'}
+        </div>
+      </div>
+
+      <div style={{ background: '#0D1526', border: '1px solid rgba(0,229,255,0.08)', borderRadius: 8, padding: '10px 12px' }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
+          SHAPE PREVIEW
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>IN</span>
+            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'rgba(0,229,255,0.7)' }}>
+              {inputShape ? formatShape(inputShape, format) : '—'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>OUT</span>
+            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: hasError ? '#FF6B35' : '#39FF14', fontWeight: 600 }}>
+              {outputShape ? formatShape(outputShape, format) : '???'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+
+function EmbeddingInspector({ node, result, format, updateNodeConfig }) {
+  const config      = node.data?.config || {}
+  const inputShape  = result?.inputShape
+  const outputShape = result?.outputShape
+  const hasError    = !!result?.error
+
+  const num_embeddings = config.num_embeddings ?? 10000
+  const embedding_dim  = config.embedding_dim  ?? 256
+
+  const update = (key, val) => updateNodeConfig(node.id, { [key]: val })
+
+  return (
+    <div>
+      <div style={{
+        background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.18)',
+        borderRadius: 7, padding: '8px 10px', marginBottom: 16,
+        fontFamily: 'JetBrains Mono', fontSize: 9, lineHeight: 1.7,
+        color: 'rgba(165,180,252,0.8)',
+      }}>
+        <div>Input: [B, seq_len] — integer token IDs</div>
+        <div>Output: [B, seq_len, embed_dim]</div>
+        <div style={{ fontSize: 8, marginTop: 3, color: 'rgba(165,180,252,0.45)' }}>
+          Params = vocab_size × embed_dim = {(num_embeddings * embedding_dim).toLocaleString()}
+        </div>
+      </div>
+
+      <ParamRow label="vocab_size" value={num_embeddings} min={256} max={200000} step={256}
+        onChange={v => update('num_embeddings', Math.round(v))} />
+      <ParamRow label="embed_dim" value={embedding_dim} min={8} max={4096} step={8}
+        onChange={v => update('embedding_dim', Math.round(v))} />
+
+      <div style={{ background: '#0D1526', border: '1px solid rgba(0,229,255,0.08)', borderRadius: 8, padding: '10px 12px', marginTop: 4 }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(0,229,255,0.5)', letterSpacing: '0.12em', marginBottom: 8 }}>
+          SHAPE PREVIEW
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>IN</span>
+            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'rgba(0,229,255,0.7)' }}>
+              {inputShape ? formatShape(inputShape, format) : '—'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>OUT</span>
+            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: hasError ? '#FF6B35' : '#39FF14', fontWeight: 600 }}>
+              {outputShape ? formatShape(outputShape, format) : '???'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── LSTM INSPECTOR ──────────────────────────────────────────────────────────
+
 function LSTMInspector({ node, result, format, updateNodeConfig }) {
   const config      = node.data?.config || {}
   const inputShape  = result?.inputShape
@@ -598,6 +760,12 @@ export default function Inspector() {
     if (layerType === 'LSTM') {
       return <LSTMInspector node={node} result={result} format={format} updateNodeConfig={updateNodeConfig} />
     }
+    if (layerType === 'GRU') {
+      return <GRUInspector node={node} result={result} format={format} updateNodeConfig={updateNodeConfig} />
+    }
+    if (layerType === 'Embedding') {
+      return <EmbeddingInspector node={node} result={result} format={format} updateNodeConfig={updateNodeConfig} />
+    }
 
     if (!config || Object.keys(ranges).length === 0) {
       return (
@@ -621,7 +789,7 @@ export default function Inspector() {
   }
 
 
-  const hasCustomUI = ['Merge', 'Reshape', 'Permute', 'MultiHeadAttention', 'LSTM'].includes(layerType)
+  const hasCustomUI = ['Merge', 'Reshape', 'Permute', 'MultiHeadAttention', 'LSTM', 'GRU', 'Embedding'].includes(layerType)
 
   return (
     <div
