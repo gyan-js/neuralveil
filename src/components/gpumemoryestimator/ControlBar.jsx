@@ -5,13 +5,20 @@ import gpt2 from '../../presets/gpt2_small.json'
 import bert from '../../presets/bert_base.json'
 import resnet from '../../presets/resnet50.json'
 import llama from '../../presets/llama7b.json'
+import gpt3 from '../../presets/gpt3_175b.json'
+import vitBase from '../../presets/vit_base.json'
+import sdUnet from '../../presets/stable_diffusion_unet.json'
 import { copyShareURL } from '../../utils/urlShare.js'
 import '../../styles/gpu.css'
+
 const PRESETS = [
-  { label: 'GPT-2 Small', data: gpt2 },
-  { label: 'BERT-base', data: bert },
-  { label: 'ResNet-50', data: resnet },
-  { label: 'LLaMA-7B', data: llama },
+  { label: 'GPT-2 Small',      data: gpt2    },
+  { label: 'BERT-base',        data: bert    },
+  { label: 'ResNet-50',        data: resnet  },
+  { label: 'LLaMA-7B',        data: llama   },
+  { label: 'GPT-3 175B',      data: gpt3    },
+  { label: 'ViT-Base',         data: vitBase },
+  { label: 'Stable Diff UNet', data: sdUnet  },
 ]
 
 export default function ControlBar() {
@@ -20,12 +27,14 @@ export default function ControlBar() {
   const mode = useMemoryStore((s) => s.mode)
   const optimizerType = useMemoryStore((s) => s.optimizerType)
   const includeOverhead = useMemoryStore((s) => s.includeOverhead)
+  const gradientCheckpointing = useMemoryStore((s) => s.gradientCheckpointing)
   const layers = useMemoryStore((s) => s.layers)
   const setBatchSize = useMemoryStore((s) => s.setBatchSize)
   const setPrecision = useMemoryStore((s) => s.setPrecision)
   const setMode = useMemoryStore((s) => s.setMode)
   const setOptimizer = useMemoryStore((s) => s.setOptimizer)
   const setIncludeOverhead = useMemoryStore((s) => s.setIncludeOverhead)
+  const setGradientCheckpointing = useMemoryStore((s) => s.setGradientCheckpointing)
   const loadPreset = useMemoryStore((s) => s.loadPreset)
 
   const [copied, setCopied] = React.useState(false)
@@ -41,7 +50,7 @@ export default function ControlBar() {
 
   return (
     <div className="control-bar">
-     
+
       <section className="cb-section">
         <div className="panel-label"> Global Config</div>
 
@@ -92,18 +101,15 @@ export default function ControlBar() {
           <div className="cb-row">
             <label className="cb-label">Optimizer</label>
             <div className="toggle-group">
-              <button
-                className={`toggle-btn ${optimizerType === 'adam' ? 'active' : ''}`}
-                onClick={() => setOptimizer('adam')}
-              >
-                Adam
-              </button>
-              <button
-                className={`toggle-btn ${optimizerType === 'sgd' ? 'active' : ''}`}
-                onClick={() => setOptimizer('sgd')}
-              >
-                SGD
-              </button>
+              {[['adam','Adam'],['adamw','AdamW'],['sgd','SGD'],['adam8bit','8-bit']].map(([val, label]) => (
+                <button
+                  key={val}
+                  className={`toggle-btn ${optimizerType === val ? 'active' : ''}`}
+                  onClick={() => setOptimizer(val)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -120,6 +126,23 @@ export default function ControlBar() {
           </label>
           <span className="cb-label">+20% CUDA overhead</span>
         </div>
+
+        {mode === 'training' && (
+          <div className="cb-row cb-switch-row">
+            <label className="nf-switch">
+              <input
+                type="checkbox"
+                checked={gradientCheckpointing}
+                onChange={(e) => setGradientCheckpointing(e.target.checked)}
+              />
+              <div className="nf-switch-track" />
+              <div className="nf-switch-thumb" />
+            </label>
+            <span className="cb-label" title="Reduces activation memory to O(√L) at the cost of recomputation">
+              Gradient checkpointing
+            </span>
+          </div>
+        )}
       </section>
 
       <div className="cb-divider" />
