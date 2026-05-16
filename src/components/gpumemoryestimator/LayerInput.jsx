@@ -5,17 +5,56 @@ import { LAYER_TYPES, LAYER_TYPE_MAP } from '../../constants/layerTypes.js'
 import { calcLayerParams } from '../../engine/memoryEngine.js'
 import { PRECISION_BYTES } from '../../engine/precisionBytes.js'
 import '../../styles/gpu.css'
+
+const PRECISION_OPTIONS = [
+  { value: 'global', label: 'global' },
+  { value: 'fp32',   label: 'fp32'   },
+  { value: 'fp16',   label: 'fp16'   },
+  { value: 'bf16',   label: 'bf16'   },
+  { value: 'int8',   label: 'int8'   },
+  { value: 'int4',   label: 'int4'   },
+]
+
+const PRECISION_BADGE_COLOR = {
+  fp32: 'var(--nf-accent)',
+  fp16: 'var(--nf-amber)',
+  bf16: 'var(--nf-purple)',
+  int8: 'var(--nf-warn)',
+  int4: 'var(--nf-red)',
+}
+
 function LayerRow({ layer, index, precisionBytes }) {
   const updateLayer = useMemoryStore((s) => s.updateLayer)
   const removeLayer = useMemoryStore((s) => s.removeLayer)
   const params = calcLayerParams(layer)
-  const memGB = (params * precisionBytes) / 1e9
+
+  const effectivePrecisionBytes = layer.precision
+    ? (PRECISION_BYTES[layer.precision] ?? precisionBytes)
+    : precisionBytes
+  const memGB = (params * effectivePrecisionBytes) / 1e9
+
+  function handlePrecisionChange(e) {
+    const val = e.target.value
+    updateLayer(layer.id, { precision: val === 'global' ? null : val })
+  }
 
   return (
     <div className="layer-row">
       <div className="lr-index">{index + 1}</div>
       <div className="lr-info">
-        <div className="lr-type">{layer.type}</div>
+        <div className="lr-type">
+          {layer.type}
+          {layer.precision && (
+            <span
+              className="precision-badge"
+              style={{ background: `${PRECISION_BADGE_COLOR[layer.precision]}22`,
+                       color: PRECISION_BADGE_COLOR[layer.precision],
+                       borderColor: `${PRECISION_BADGE_COLOR[layer.precision]}55` }}
+            >
+              {layer.precision}
+            </span>
+          )}
+        </div>
         <div className="lr-cfg">
           {layer.units}
           {layer.output && layer.output !== layer.units ? `→${layer.output}` : ''}
@@ -26,6 +65,16 @@ function LayerRow({ layer, index, precisionBytes }) {
         <div className="lr-mem">{memGB < 0.001 ? '<0.001' : memGB.toFixed(3)}GB</div>
         <div className="lr-params">{params.toLocaleString()}p</div>
       </div>
+      <select
+        className="lr-precision-select"
+        value={layer.precision ?? 'global'}
+        onChange={handlePrecisionChange}
+        title="Per-layer precision override"
+      >
+        {PRECISION_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
       <button className="lr-remove" onClick={() => removeLayer(layer.id)} title="Remove layer">
         ×
       </button>
@@ -37,7 +86,6 @@ export default function LayerInput() {
   const layers = useMemoryStore((s) => s.layers)
   const precision = useMemoryStore((s) => s.precision)
   const addLayerAction = useMemoryStore((s) => s.addLayer)
-  const updateLayer = useMemoryStore((s) => s.updateLayer)
   const clearLayers = useMemoryStore((s) => s.clearLayers)
 
   const precisionBytes = PRECISION_BYTES[precision]
@@ -45,7 +93,7 @@ export default function LayerInput() {
   const [selectedType, setSelectedType] = useState('Dense')
   const typeDef = LAYER_TYPE_MAP[selectedType]
 
-  const { register, handleSubmit, reset, watch } = useForm({
+  const { register, handleSubmit, reset } = useForm({
     defaultValues: typeDef?.defaults ?? {},
   })
 
@@ -56,28 +104,7 @@ export default function LayerInput() {
   }
 
   function onSubmit(data) {
-   
     addLayerAction(selectedType)
-    
-    useMemoryStore.setState((s) => {
-      const last = s.layers[s.layers.length - 1]
-      if (!last) return {}
-      const updated = s.layers.map((l) =>
-        l.id === last.id
-          ? {
-              ...l,
-              units: parseInt(data.units) || l.units,
-              output: parseInt(data.output) || l.output,
-              seqLen: parseInt(data.seqLen) || l.seqLen || 1,
-              extra: parseInt(data.extra) || l.extra || 0,
-            }
-          : l
-      )
-      const next = { ...s, layers: updated }
-    
-      return { layers: updated }
-    })
-  
     const st = useMemoryStore.getState()
     const last = st.layers[st.layers.length - 1]
     if (last) {
@@ -158,7 +185,6 @@ export default function LayerInput() {
         .layer-input {
           display: flex;
           flex-direction: column;
-          height: 100%;
           gap: 0;
         }
         .li-header {
@@ -182,13 +208,12 @@ export default function LayerInput() {
         }
         .btn-clear:hover { color: var(--nf-red); }
         .layer-list {
-          flex: 1;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
           gap: 4px;
-          margin-bottom: 12px;
-          min-height: 0;
+          margin-bottom: 20px;
+          max-height: 400px;
         }
         .empty-layers {
           font-size: 10px;
@@ -200,8 +225,8 @@ export default function LayerInput() {
         }
         .layer-row {
           display: grid;
-          grid-template-columns: 20px 1fr auto 22px;
-          gap: 8px;
+          grid-template-columns: 20px 1fr auto auto 22px;
+          gap: 6px;
           align-items: center;
           background: var(--nf-surface2);
           border: 1px solid var(--nf-border);
@@ -221,6 +246,19 @@ export default function LayerInput() {
           text-transform: uppercase;
           color: var(--nf-accent2);
           margin-bottom: 1px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+        .precision-badge {
+          font-size: 8px;
+          letter-spacing: 0.08em;
+          padding: 1px 5px;
+          border-radius: 2px;
+          border: 1px solid;
+          text-transform: uppercase;
+          font-weight: 700;
+          line-height: 1.4;
         }
         .lr-cfg {
           font-size: 10px;
@@ -236,6 +274,28 @@ export default function LayerInput() {
         .lr-params {
           font-size: 9px;
           color: var(--nf-muted);
+        }
+        .lr-precision-select {
+          background: var(--nf-surface2);
+          border: 1px solid var(--nf-border);
+          color: var(--nf-muted);
+          font-family: 'Space Mono', monospace;
+          font-size: 8px;
+          padding: 2px 4px;
+          border-radius: 2px;
+          cursor: pointer;
+          outline: none;
+          appearance: none;
+          -webkit-appearance: none;
+          width: 44px;
+          text-align: center;
+          letter-spacing: 0.05em;
+          transition: border-color 0.15s, color 0.15s;
+        }
+        .lr-precision-select:focus,
+        .lr-precision-select:hover {
+          border-color: var(--nf-border2);
+          color: var(--nf-text);
         }
         .lr-remove {
           background: transparent;
@@ -298,3 +358,4 @@ export default function LayerInput() {
     </div>
   )
 }
+
