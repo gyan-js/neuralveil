@@ -1,4 +1,3 @@
-
 import { GPU_VRAM } from './precisionBytes.js'
 export function calcLayerParams(layer) {
   const { type, units = 0, output = units, extra = 0 } = layer
@@ -57,14 +56,20 @@ export function calcWeights(layers, precisionBytes) {
 }
 
 
-export function calcActivations(layers, batchSize, precisionBytes) {
+
+export function calcGradientCheckpointingFactor(numLayers) {
+  if (numLayers <= 1) return 1
+  return Math.sqrt(numLayers) / numLayers
+}
+
+export function calcActivations(layers, batchSize, precisionBytes, gradientCheckpointing = false) {
+  const factor = gradientCheckpointing ? calcGradientCheckpointingFactor(layers.length) : 1
   const perLayer = layers.map((layer) => {
     const seqLen = layer.seqLen || 1
     const hiddenDim = layer.units || 1
-    const memGB = (batchSize * seqLen * hiddenDim * precisionBytes) / 1e9
+    const memGB = (batchSize * seqLen * hiddenDim * precisionBytes * factor) / 1e9
     return { layerId: layer.id, memGB }
   })
-
   const total = perLayer.reduce((sum, l) => sum + l.memGB, 0)
   return { total, perLayer }
 }
@@ -73,8 +78,13 @@ export function calcActivations(layers, batchSize, precisionBytes) {
 export function calcGradients(weightsResult) {
   return weightsResult.total
 }
+
+
 export function calcOptimizer(weightsResult, optimizerType) {
-  const multiplier = optimizerType === 'adam' ? 2 : 1
+  const multiplier =
+    optimizerType === 'adam'     ? 2 :
+    optimizerType === 'adamw'    ? 2 :
+    optimizerType === 'adam8bit' ? 0.5 : 1
   return weightsResult.total * multiplier
 }
 
@@ -113,13 +123,13 @@ export function getGPUFitStatus(totalGB) {
 }
 
 
-export function runMemoryPipeline({ layers, batchSize, precisionBytes, mode, optimizerType, includeOverhead }) {
-  const weights = calcWeights(layers, precisionBytes)
-  const activations = calcActivations(layers, batchSize, precisionBytes)
-  const gradients = calcGradients(weights)
-  const optimizer = calcOptimizer(weights, optimizerType)
-  const totals = calcTotal(weights, activations, gradients, optimizer, mode, includeOverhead)
-  const gpuFit = getGPUFitStatus(totals.total)
+export function runMemoryPipeline({ layers, batchSize, precisionBytes, mode, optimizerType, includeOverhead, gradientCheckpointing = false }) {
+  const weights     = calcWeights(layers, precisionBytes)
+  const activations = calcActivations(layers, batchSize, precisionBytes, gradientCheckpointing)
+  const gradients   = calcGradients(weights)
+  const optimizer   = calcOptimizer(weights, optimizerType)
+  const totals      = calcTotal(weights, activations, gradients, optimizer, mode, includeOverhead)
+  const gpuFit      = getGPUFitStatus(totals.total)
 
   const dominant = Object.entries(totals.breakdown)
     .filter(([, v]) => v > 0)
@@ -127,5 +137,26 @@ export function runMemoryPipeline({ layers, batchSize, precisionBytes, mode, opt
 
   const recommended = gpuFit.filter((g) => g.fits).sort((a, b) => a.vramGB - b.vramGB)[0] ?? null
 
-  return { weights, activations, totals, gpuFit, dominant, recommended }
+ 
+  const totalParams = layers.reduce((s, l) => s + calcLayerParams(l), 0)
+  const paramsPerGB = totalParams / Math.max(totals.total, 0.001)
+  const paramScore  = Math.min(100, (paramsPerGB / 1e9) * 100)
+  const utilScore   = (gpuFit.filter(g => g.fits).length / gpuFit.length) * 100
+  const efficiencyScore = Math.round(paramScore * 0.6 + utilScore * 0.4)
+
+  
+  const activNormal = calcActivations(layers, batchSize, precisionBytes, false)
+  const gcSavingsGB = gradientCheckpointing ? +(activNormal.total - activations.total).toFixed(3) : 0
+
+  return { weights, activations, totals, gpuFit, dominant, recommended, efficiencyScore, gcSavingsGB }
+}
+
+ 
+export function sweepBatchSizes(config, batchSizes = [1, 2, 4, 8, 16, 32, 64, 128, 256]) {
+  return batchSizes.map((batchSize) => {
+    const r = runMemoryPipeline({ ...config, batchSize })
+    const fits = {}
+    r.gpuFit.forEach(g => { fits[g.name] = g.fits })
+    return { batchSize, totalGB: +r.totals.total.toFixed(3), fits }
+  })
 }
