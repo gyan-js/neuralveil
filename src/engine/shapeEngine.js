@@ -1,16 +1,6 @@
-/**
- * shapeEngine.js — Tensor Shape Inference Engine v2.0
- *
- * Supports all layer types including new additions:
- *   AvgPool2D, GlobalAvgPool, ConvTranspose2D, GRU, ZeroPad2D, Upsample,
- *   GroupNorm, AdaptiveAvgPool — plus improved existing inference with
- *   null-propagation and detailed error messages.
- *
- * Null semantics: null = dynamic/unknown dimension.
- * All arithmetic is null-safe: null ⊕ anything = null.
- */
-
-// ─── NULL-SAFE MATH ───────────────────────────────────────────────────────────
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Gyan Shresth
+// See LICENSE file in the project root for full license text.
 
 function safeMul(a, b)          { return (a === null || b === null) ? null : a * b }
 function safeAdd(a, b)          { return (a === null || b === null) ? null : a + b }
@@ -211,7 +201,7 @@ export function inferReshape(inputShape, config) {
     return { shape: [inputShape[0]], error: null }
   }
 
-  // Standard reshape: user specifies targetC, targetH, targetW
+  
   const { targetC, targetH, targetW } = config
   const [batch, ...rest] = inputShape
   const inProduct = rest.every(d => d !== null) ? rest.reduce((a, b) => a * b, 1) : null
