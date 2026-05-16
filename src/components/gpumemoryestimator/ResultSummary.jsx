@@ -26,6 +26,7 @@ export default function ResultSummary() {
   const precision = useMemoryStore((s) => s.precision)
   const batchSize = useMemoryStore((s) => s.batchSize)
   const mode = useMemoryStore((s) => s.mode)
+  const gradientCheckpointing = useMemoryStore((s) => s.gradientCheckpointing)
 
   function handleExport() {
     exportCSV({ layers, results, precision, batchSize, mode })
@@ -39,7 +40,7 @@ export default function ResultSummary() {
     )
   }
 
-  const { totals, dominant, recommended } = results
+  const { totals, dominant, recommended, efficiencyScore, gcSavingsGB } = results
   const isTraining = mode === 'training'
 
   const breakdown = [
@@ -80,7 +81,19 @@ export default function ResultSummary() {
             value={dominantLabel}
             sub={recommended ? `→ ${recommended.name}` : 'No GPU fits'}
           />
+          <StatCard
+            label="Efficiency"
+            value={`${efficiencyScore}/100`}
+            sub="params per GB · GPU fit"
+          />
         </div>
+
+        {gradientCheckpointing && gcSavingsGB > 0 && (
+          <div className="gc-callout">
+            <span className="gc-icon">⚡</span>
+            <span>Gradient checkpointing saves <strong>{gcSavingsGB.toFixed(3)} GB</strong> of activation memory (recomputation cost applies)</span>
+          </div>
+        )}
 
         <div className="rs-breakdown">
           {breakdown.map((b) => {
@@ -189,6 +202,20 @@ export default function ResultSummary() {
         .rs-bd-val { color: var(--nf-text); text-align: right; }
         .rs-bd-pct { color: var(--nf-muted); }
         .rs-actions { display: flex; justify-content: flex-end; }
+        .gc-callout {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 10px;
+          color: var(--nf-accent);
+          background: rgba(0,229,160,0.06);
+          border: 1px solid rgba(0,229,160,0.2);
+          border-radius: 3px;
+          padding: 7px 10px;
+          letter-spacing: 0.02em;
+        }
+        .gc-callout strong { color: var(--nf-accent); }
+        .gc-icon { font-size: 12px; flex-shrink: 0; }
         .btn-csv {
           background: transparent;
           border: 1px solid var(--nf-border2);
