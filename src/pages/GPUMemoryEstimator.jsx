@@ -1,20 +1,22 @@
-
 import React, { useEffect } from 'react'
 import ControlBar from '../components/gpumemoryestimator/ControlBar'
 import Navbar from '../components/neuralveil/Navbar'
 import LayerInput from '../components/gpumemoryestimator/LayerInput.jsx'
 import MemoryChart from '../components/gpumemoryestimator/MemoryChart.jsx'
 import GPUTable from '../components/gpumemoryestimator/GPUTable.jsx'
+import LayerTable from '../components/gpumemoryestimator/LayerTable.jsx'
 import ResultSummary from '../components/gpumemoryestimator/ResultSummary.jsx'
+import SweepChart from '../components/gpumemoryestimator/SweepChart.jsx'
+import HFImport from '../components/gpumemoryestimator/HfImport.jsx'
 import useMemoryStore from '../store/useMemoryStore.js'
 import { deserializeFromURL } from '../utils/urlShare.js'
 import gpt2 from '../presets/gpt2_small.json'
 import '../styles/gpu.css'
+
 export const GPUMemoryEstimator = () => {
   const loadPreset = useMemoryStore((s) => s.loadPreset)
 
   useEffect(() => {
-   
     const fromURL = deserializeFromURL()
     if (fromURL && fromURL.layers?.length > 0) {
       loadPreset({ ...fromURL.config, layers: fromURL.layers })
@@ -25,7 +27,7 @@ export const GPUMemoryEstimator = () => {
 
   return (
     <div className="scanlines" style={{ minHeight: '100vh', background: 'var(--nf-bg)' }}>
-  
+
       <header className="app-header">
         <div className="app-logo">
           <span className="logo-neural">Neural</span>
@@ -34,16 +36,20 @@ export const GPUMemoryEstimator = () => {
           <span className="logo-title">GPU Memory Estimator</span>
         </div>
         <div className="app-header-right">
-          <div className="app-badge">v1.0</div>
+          <div className="app-badge">v2.0</div>
         </div>
       </header>
 
       {/* Body */}
       <div className="app-body">
-       
+
         <aside className="app-sidebar">
           <div className="sidebar-top">
             <ControlBar />
+          </div>
+          <div className="sidebar-divider" />
+          <div className="sidebar-hf">
+            <HFImport />
           </div>
           <div className="sidebar-divider" />
           <div className="sidebar-layers">
@@ -51,9 +57,8 @@ export const GPUMemoryEstimator = () => {
           </div>
         </aside>
 
-       
         <main className="app-main">
-        
+
           <section className="main-panel">
             <div className="panel-label" style={{ padding: '10px 16px 0', marginBottom: 0 }}>
               // Memory Analysis
@@ -61,7 +66,6 @@ export const GPUMemoryEstimator = () => {
             <ResultSummary />
           </section>
 
-     
           <section className="main-panel">
             <div className="panel-label" style={{ padding: '10px 16px 0', marginBottom: 0 }}>
               // VRAM Breakdown by Layer
@@ -69,7 +73,15 @@ export const GPUMemoryEstimator = () => {
             <MemoryChart />
           </section>
 
-   
+          {/* Layer Breakdown */}
+          <section className="main-panel" style={{ height: '480px', flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <LayerTable />
+          </section>
+
+          <section className="main-panel">
+            <SweepChart />
+          </section>
+
           <section className="main-panel">
             <GPUTable />
           </section>
@@ -127,11 +139,14 @@ export const GPUMemoryEstimator = () => {
           border-right: 1px solid var(--nf-border);
           display: flex;
           flex-direction: column;
-          overflow: hidden;
+          overflow-y: auto;
         }
         .sidebar-top {
           flex-shrink: 0;
           overflow-y: auto;
+        }
+        .sidebar-hf {
+          flex-shrink: 0;
         }
         .sidebar-divider {
           height: 1px;
@@ -140,7 +155,6 @@ export const GPUMemoryEstimator = () => {
         }
         .sidebar-layers {
           flex: 1;
-          overflow: hidden;
           padding: 14px 14px 14px;
           display: flex;
           flex-direction: column;
