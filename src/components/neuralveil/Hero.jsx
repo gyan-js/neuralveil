@@ -416,7 +416,7 @@ export default function Hero() {
         }}>
           Most shape errors surface at crash time. Most OOM errors surface on a cluster you're paying for.{' '}
           <span style={{ color: '#b8a890' }}>NeuralVeil moves both to design time — a Pyodide WebAssembly runtime that intercepts real forward-pass shapes, 
-           , and a memory estimator that models per-rank activation, gradient, and optimizer state across FSDP, DDP, and Tensor Parallel.</span>{' '}
+          and a memory estimator that models per-rank activation, gradient, and optimizer state across FSDP, DDP, and Tensor Parallel.</span>{' '}
           No OOM surprises. No shape roulette. No guessing.
  No setup. No backend. No surprises.
         </p>
