@@ -15,7 +15,7 @@ import '../../styles/gpu.css'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
-const GPU_COLORS = {
+const BUILTIN_GPU_COLORS = {
   'RTX 3080': '#6b7280',
   'RTX 3090': '#8b5cf6',
   'RTX 4080': '#06b6d4',
@@ -27,12 +27,30 @@ const GPU_COLORS = {
   'H200':     '#ec4899',
 }
 
-const ALL_GPUS = Object.keys(GPU_VRAM)
+const CUSTOM_GPU_COLOR = '#ffffff'
+const BUILTIN_GPUS = Object.keys(GPU_VRAM)
 const BATCH_SIZES = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 
 export default function SweepChart() {
   const sweepResults = useMemoryStore((s) => s.sweepResults)
   const layers       = useMemoryStore((s) => s.layers)
+  const customGPUs   = useMemoryStore((s) => s.customGPUs)
+
+  // Merged VRAM map: built-in + custom
+  const allVramMap = useMemo(() => {
+    const map = { ...GPU_VRAM }
+    customGPUs.forEach(g => { map[g.name] = g.vramGB })
+    return map
+  }, [customGPUs])
+
+  // Merged color resolver
+  const getGPUColor = (name) => BUILTIN_GPU_COLORS[name] ?? CUSTOM_GPU_COLOR
+
+  // All GPU names: built-ins first, then custom
+  const allGPUNames = useMemo(() => [
+    ...BUILTIN_GPUS,
+    ...customGPUs.map(g => g.name),
+  ], [customGPUs])
 
   const [visibleGPUs, setVisibleGPUs] = useState(
     new Set(['RTX 4090', 'A100', 'H100'])
@@ -50,17 +68,21 @@ export default function SweepChart() {
     const labels = BATCH_SIZES.map(String)
     const requiredData = sweepResults.map(r => r?.totalGB ?? 0)
 
-    const gpuDatasets = ALL_GPUS.filter(n => visibleGPUs.has(n)).map(name => ({
-      label: name,
-      data: BATCH_SIZES.map(() => GPU_VRAM[name]),
-      borderColor: GPU_COLORS[name],
-      backgroundColor: 'transparent',
-      borderWidth: 1,
-      borderDash: [4, 3],
-      pointRadius: 0,
-      pointHoverRadius: 0,
-      tension: 0,
-    }))
+    const gpuDatasets = allGPUNames.filter(n => visibleGPUs.has(n)).map(name => {
+      const isCustom = !BUILTIN_GPU_COLORS[name]
+      const color = getGPUColor(name)
+      return {
+        label: name,
+        data: BATCH_SIZES.map(() => allVramMap[name]),
+        borderColor: color,
+        backgroundColor: 'transparent',
+        borderWidth: isCustom ? 2 : 1,
+        borderDash: isCustom ? [] : [4, 3],
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        tension: 0,
+      }
+    })
 
     const chartData = {
       labels,
@@ -105,14 +127,15 @@ export default function SweepChart() {
                 return ` Required: ${ctx.raw.toFixed(3)} GB`
               }
               const name = ctx.dataset.label
+              const vram = allVramMap[name]
               const required = ctx.chart.data.datasets[0].data[ctx.dataIndex]
-              const fits = required <= GPU_VRAM[name]
-              return ` ${name}: ${fits ? '✓' : '✗'} ${GPU_VRAM[name]}GB`
+              const fits = required <= vram
+              return ` ${name}: ${fits ? '✓' : '✗'} ${vram}GB`
             },
             labelColor: (ctx) => {
               const color = ctx.dataset.label === 'Required VRAM'
                 ? 'rgb(0,229,160)'
-                : GPU_COLORS[ctx.dataset.label]
+                : getGPUColor(ctx.dataset.label)
               return { borderColor: color, backgroundColor: color }
             },
           },
@@ -135,15 +158,15 @@ export default function SweepChart() {
     }
 
     return { chartData, options }
-  }, [sweepResults, visibleGPUs])
+  }, [sweepResults, visibleGPUs, allGPUNames, allVramMap])
 
   if (!layers.length) {
     return (
       <div className="sweep-wrap">
         <div className="sweep-header">
-          <span className="panel-label" style={{ marginBottom: 0 }}>// Batch Size Sweep</span>
+          
         </div>
-        <div className="sweep-empty">Add layers to see VRAM vs batch size</div>
+        <div className="text-[11px] ">Add layers to see VRAM vs batch size</div>
       </div>
     )
   }
@@ -151,21 +174,26 @@ export default function SweepChart() {
   return (
     <div className="sweep-wrap">
       <div className="sweep-header">
-        <span className="panel-label" style={{ marginBottom: 0 }}>// Batch Size Sweep</span>
+       
         <span className="sweep-hint">Points above a line = OOM</span>
       </div>
 
       <div className="sweep-gpu-toggles">
-        {ALL_GPUS.map(name => (
-          <button
-            key={name}
-            className={`sweep-gpu-btn ${visibleGPUs.has(name) ? 'active' : ''}`}
-            style={{ '--gpu-color': GPU_COLORS[name] }}
-            onClick={() => toggleGPU(name)}
-          >
-            {name}
-          </button>
-        ))}
+        {allGPUNames.map(name => {
+          const isCustom = !BUILTIN_GPU_COLORS[name]
+          const color = getGPUColor(name)
+          return (
+            <button
+              key={name}
+              className={`sweep-gpu-btn ${visibleGPUs.has(name) ? 'active' : ''}`}
+              style={{ '--gpu-color': color }}
+              onClick={() => toggleGPU(name)}
+            >
+              {name}
+              {isCustom && <span className="sweep-custom-badge">C</span>}
+            </button>
+          )
+        })}
       </div>
 
       <div style={{ position: 'relative', width: '100%', height: '220px', padding: '0 14px 14px' }}>
@@ -191,10 +219,11 @@ export default function SweepChart() {
           letter-spacing: 0.05em;
         }
         .sweep-empty {
-          font-size: 11px;
+          font-size: 5px;
           color: var(--nf-muted);
           text-align: center;
           padding: 20px;
+          display: none;
         }
         .sweep-gpu-toggles {
           display: flex;
@@ -218,6 +247,17 @@ export default function SweepChart() {
           border-color: var(--gpu-color);
           color: var(--gpu-color);
           background: color-mix(in srgb, var(--gpu-color) 10%, transparent);
+        }
+        .sweep-custom-badge {
+          display: inline-block;
+          margin-left: 4px;
+          font-size: 7px;
+          letter-spacing: 0.05em;
+          border: 1px solid currentColor;
+          border-radius: 2px;
+          padding: 0 3px;
+          opacity: 0.8;
+          vertical-align: middle;
         }
         .sweep-tooltip {
           background: #111318;

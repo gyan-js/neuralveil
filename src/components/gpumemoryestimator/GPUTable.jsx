@@ -18,7 +18,7 @@ export default function GPUTable() {
   return (
     <div className="gpu-table-wrap">
       <div className="gpu-table-head">
-        <span className="panel-label" style={{ marginBottom: 0 }}>// GPU Fit Matrix</span>
+       
         <span className="gpu-total-label">Required: {totals.total.toFixed(2)} GB</span>
       </div>
       <table className="gpu-table">

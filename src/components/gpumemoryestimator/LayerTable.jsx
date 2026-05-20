@@ -82,10 +82,8 @@ export default function LayerTable() {
   if (!layers.length) {
     return (
       <div className="lt-wrap">
-        <div className="lt-head">
-          <span className="panel-label" style={{ marginBottom: 0 }}>// Layer Breakdown</span>
-        </div>
-        <div className="lt-empty">Add layers to see per-layer breakdown</div>
+       
+        <div className="text-[11px]">Add layers to see per-layer breakdown</div>
       </div>
     )
   }
@@ -93,7 +91,7 @@ export default function LayerTable() {
   return (
     <div className="lt-wrap">
       <div className="lt-head">
-        <span className="panel-label" style={{ marginBottom: 0 }}>// Layer Breakdown</span>
+      
         <span className="lt-count">{rows.length} layers</span>
       </div>
       <div className="lt-scroll">

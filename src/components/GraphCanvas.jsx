@@ -56,6 +56,10 @@ export default function GraphCanvas() {
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
+      <div
+        className="dot-grid-bg"
+        style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}
+      />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -71,13 +75,8 @@ export default function GraphCanvas() {
         maxZoom={2}
         defaultEdgeOptions={{ type: 'shapeEdge' }}
         proOptions={{ hideAttribution: true }}
-        style={{ background: 'transparent' }}
+        style={{ background: 'transparent', position: 'relative', zIndex: 1 }}
       >
-        
-        <div
-          className="dot-grid-bg"
-          style={{ position: 'absolute', inset: 0, zIndex: -1 }}
-        />
         <Background color="transparent" />
 
         <Controls position="bottom-left" showInteractive={false} />
@@ -85,8 +84,11 @@ export default function GraphCanvas() {
         <MiniMap
           position="bottom-right"
           nodeColor={(n) => {
-            if (n.data?.layerType === 'Input') return '#39FF14'
-            if (n.data?.layerType === 'Merge') return '#F59E0B'
+            const lt = n.data?.layerType ?? n.type
+            if (lt === 'Input')  return '#39FF14'
+            if (lt === 'Merge')  return '#F59E0B'
+            if (lt === 'Conv1D') return '#00B8D4'
+            if (lt === 'Conv3D') return '#0097A7'
             return '#00E5FF'
           }}
           maskColor="rgba(0,0,0,0.6)"
