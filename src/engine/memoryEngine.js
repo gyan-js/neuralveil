@@ -1,4 +1,5 @@
 import { GPU_VRAM } from './precisionBytes.js'
+
 export function calcLayerParams(layer) {
   const { type, units = 0, output = units, extra = 0 } = layer
 
@@ -106,30 +107,43 @@ export function calcTotal(weights, activations, gradients, optimizer, mode, incl
     gradientsGB,
     optimizerGB,
     overheadGB,
-    breakdown: { weights: weightsGB, activations: activationsGB, gradients: gradientsGB, optimizer: optimizerGB, overhead: overheadGB },
+    breakdown: { weights: weightsGB, activations: activationsGB, gradients: gradientsGB, optimizer: optimizerGB, 
+      overhead: overheadGB },
   }
 }
 
 
-export function getGPUFitStatus(totalGB) {
-  return Object.entries(GPU_VRAM)
+
+export function getGPUFitStatus(totalGB, customGPUs = []) {
+  const builtIn = Object.entries(GPU_VRAM)
     .map(([name, vramGB]) => ({
       name,
       vramGB,
       fits: totalGB <= vramGB,
       marginGB: parseFloat((vramGB - totalGB).toFixed(3)),
+      source: 'builtin',
     }))
-    .sort((a, b) => a.vramGB - b.vramGB)
+
+  const custom = customGPUs.map(g => ({
+    name: g.name,
+    vramGB: g.vramGB,
+    fits: totalGB <= g.vramGB,
+    marginGB: parseFloat((g.vramGB - totalGB).toFixed(3)),
+    source: 'custom',
+  }))
+
+  return [...builtIn, ...custom].sort((a, b) => a.vramGB - b.vramGB)
 }
 
 
-export function runMemoryPipeline({ layers, batchSize, precisionBytes, mode, optimizerType, includeOverhead, gradientCheckpointing = false }) {
+export function runMemoryPipeline({ layers, batchSize, precisionBytes, mode, optimizerType, includeOverhead, 
+                                     gradientCheckpointing = false, customGPUs = [] }) {
   const weights     = calcWeights(layers, precisionBytes)
   const activations = calcActivations(layers, batchSize, precisionBytes, gradientCheckpointing)
   const gradients   = calcGradients(weights)
   const optimizer   = calcOptimizer(weights, optimizerType)
   const totals      = calcTotal(weights, activations, gradients, optimizer, mode, includeOverhead)
-  const gpuFit      = getGPUFitStatus(totals.total)
+  const gpuFit      = getGPUFitStatus(totals.total, customGPUs)
 
   const dominant = Object.entries(totals.breakdown)
     .filter(([, v]) => v > 0)
@@ -141,7 +155,7 @@ export function runMemoryPipeline({ layers, batchSize, precisionBytes, mode, opt
   const totalParams = layers.reduce((s, l) => s + calcLayerParams(l), 0)
   const paramsPerGB = totalParams / Math.max(totals.total, 0.001)
   const paramScore  = Math.min(100, (paramsPerGB / 1e9) * 100)
-  const utilScore   = (gpuFit.filter(g => g.fits).length / gpuFit.length) * 100
+  const utilScore   = (gpuFit.filter(g => g.fits).length / Math.max(gpuFit.length, 1)) * 100
   const efficiencyScore = Math.round(paramScore * 0.6 + utilScore * 0.4)
 
   
