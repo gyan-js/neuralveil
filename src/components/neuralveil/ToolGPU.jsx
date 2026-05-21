@@ -386,7 +386,7 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{
-            border: '1px solid #f07820',
+            border: '1px solid #d39a1f',
             background: '#0d0905',
             overflow: 'hidden',
             position: 'relative',
@@ -396,14 +396,14 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
             <div style={{
               position: 'absolute', top: 0, right: 0,
               width: 0, height: 0,
-              borderRight: '12px solid #f07820',
+              borderRight: '12px solid #d39a1f',
               borderBottom: '12px solid transparent',
               zIndex: 2,
             }} />
             <div style={{
               position: 'absolute', bottom: 0, left: 0,
               width: 0, height: 0,
-              borderLeft: '12px solid #f07820',
+              borderLeft: '12px solid #d39a1f',
               borderTop: '12px solid transparent',
               zIndex: 2,
             }} />
@@ -411,14 +411,14 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
               position: 'absolute', top: '10px', left: '10px', zIndex: 3,
               display: 'flex', alignItems: 'center', gap: '5px',
               background: 'rgba(15,11,7,0.85)',
-              border: '1px solid #f07820',
+              border: '1px solid #d39a1f',
               padding: '3px 8px',
-              fontFamily: 'monospace', fontSize: '9px', color: '#f07820',
+              fontFamily: 'monospace', fontSize: '9px', color: '#d39a1f',
               letterSpacing: '0.1em',
             }}>
               <span style={{
                 width: 6, height: 6, borderRadius: '50%',
-                background: '#f07820',
+                background: '#d39a1f',
                 animation: 'pulse 1.2s ease-in-out infinite',
               }} />
               LIVE
@@ -462,7 +462,7 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
           }}>
             <div style={{
               position: 'absolute', top: 0, left: 0, right: 0,
-              height: '2px', background: 'linear-gradient(90deg, transparent, #f07820)',
+              height: '2px', background: 'linear-gradient(90deg, transparent, #d39a1f)',
             }} />
             {img1Src ? (
               <img src={img1Src} alt={img1Label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -490,7 +490,7 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
           }}>
             <div style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
-              height: '2px', background: 'linear-gradient(90deg, transparent, #f07820)',
+              height: '2px', background: 'linear-gradient(90deg, transparent, #d39a1f)',
             }} />
             {img2Src ? (
               <img src={img2Src} alt={img2Label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

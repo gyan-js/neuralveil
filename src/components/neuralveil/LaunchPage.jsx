@@ -117,7 +117,7 @@ export default function LaunchPage() {
         alignItems: 'center',
         justifyContent: 'center',
         background: `
-          radial-gradient(ellipse 60% 60% at 50% 50%, rgba(232, 101, 10, 0.18) 0%, rgba(15, 11, 7, 0.95) 55%, var(--void) 100%)
+          radial-gradient(ellipse 60% 60% at 50% 50%, rgba(212, 175, 55, 0.18) 0%, rgba(15, 11, 7, 0.95) 55%, var(--void) 100%)
         `,
       }}
     >
@@ -129,6 +129,7 @@ export default function LaunchPage() {
           left: '50%',
           transform: 'translate(-50%, -50%)',
           pointerEvents: 'none',
+          filter: 'hue-rotate(30deg) saturate(1.2) brightness(1.1)',
         }}
       >
         <ForgeCircuit opacity={0.06} width={900} height={900} animate={true} />
@@ -144,7 +145,7 @@ export default function LaunchPage() {
           width: '600px',
           height: '600px',
           borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(232, 101, 10, 0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse, rgba(212, 175, 55, 0.12) 0%, transparent 70%)',
           pointerEvents: 'none',
           animation: 'cta-pulse 4s ease-in-out infinite',
         }}
@@ -223,7 +224,7 @@ export default function LaunchPage() {
               display: 'block',
             }}
           >
-            CONnECT THE
+            CONNECT THE
           </span>
           <span style={{ color: '#ede8e0', display: 'block' }}>DOTS</span>
         </h2>
