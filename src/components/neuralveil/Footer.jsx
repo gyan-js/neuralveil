@@ -68,11 +68,11 @@ export default function Footer() {
                 e.currentTarget.querySelector('.feat-title').style.color = 'rgba(200, 184, 154, 0.9)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.querySelector('.feat-num').style.color = 'rgba(232, 101, 10, 0.5)'
+                e.currentTarget.querySelector('.feat-num').style.color = 'rgba(244, 196, 90, 0.5)'
                 e.currentTarget.querySelector('.feat-title').style.color = 'rgba(200, 184, 154, 0.6)'
               }}
             >
-              <div className="feat-num font-bebas" style={{ fontSize: '36px', color: 'rgba(232, 101, 10, 0.5)', letterSpacing: '0.04em', lineHeight: '1', marginBottom: '12px', transition: 'color 0.25s ease' }}>{f.num}</div>
+              <div className="feat-num font-bebas" style={{ fontSize: '36px', color: 'rgba(244, 196, 90, 0.5)', letterSpacing: '0.04em', lineHeight: '1', marginBottom: '12px', transition: 'color 0.25s ease' }}>{f.num}</div>
               <div className="feat-title font-mono-jb" style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'rgba(200, 184, 154, 0.6)', marginBottom: '8px', transition: 'color 0.25s ease' }}>{f.title}</div>
               <div className="font-mono-jb" style={{ fontSize: '11px', lineHeight: '1.7', color: 'rgba(200, 184, 154, 0.38)', letterSpacing: '0.03em' }}>{f.desc}</div>
             </div>
