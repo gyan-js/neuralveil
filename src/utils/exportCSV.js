@@ -1,3 +1,5 @@
+import { DockIcon } from "lucide-react"
+
 export function exportCSV({ layers, results, precision, batchSize, mode }) {
     if (!results || layers.length === 0) return
   
@@ -28,7 +30,7 @@ export function exportCSV({ layers, results, precision, batchSize, mode }) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `gpu_memory_breakdown_${Date.now()}.csv`
+    link.download = `nvgme_memory_estimation_${Date.now()}.csv`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
