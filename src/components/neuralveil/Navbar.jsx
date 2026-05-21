@@ -155,7 +155,7 @@ function MobileSidebar({ open, onClose, tick }) {
               transition: 'all 0.2s ease',
             }}
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(232,101,10,0.1)'; e.currentTarget.style.color = 'var(--ember)' }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'rgba(232,101,10,0.6)' }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'rgba(244,196,90,0.6)' }}
           >
             ✕
           </button>
@@ -266,8 +266,8 @@ function HamburgerButton({ open, onClick }) {
         transition: 'border-color 0.2s ease, background-color 0.2s ease',
         padding: 0,
       }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(232,101,10,0.5)'; e.currentTarget.style.backgroundColor = 'rgba(232,101,10,0.06)' }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(232,101,10,0.2)'; e.currentTarget.style.backgroundColor = 'transparent' }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(244,196,90,0.5)'; e.currentTarget.style.backgroundColor = 'rgba(232,101,10,0.06)' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(244,196,90,0.2)'; e.currentTarget.style.backgroundColor = 'transparent' }}
     >
       {[0, 1, 2].map(i => (
         <span key={i} style={{
@@ -276,7 +276,7 @@ function HamburgerButton({ open, onClick }) {
             ? i === 1 ? '0px' : '16px'
             : '16px',
           height: '1.5px',
-          backgroundColor: 'rgba(232,101,10,0.7)',
+          backgroundColor: 'rgba(244,196,90,0.7)',
           borderRadius: '1px',
           transition: 'all 0.25s ease',
           transform: open
