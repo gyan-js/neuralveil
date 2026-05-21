@@ -38,6 +38,57 @@ export function inferConv2D(inputShape, { filters, kernelSize, stride, padding, 
   return { shape: [batch, filters, outH, outW], error: null }
 }
 
+// ─── CONV1D ───────────────────────────────────────────────────────────────────
+
+export function inferConv1D(inputShape, { filters, kernelSize, stride, padding, dilation = 1 }) {
+  if (!inputShape || inputShape.length < 2) return { error: 'MISSING_INPUT', shape: null }
+
+  if (inputShape.length === 2) return {
+    error: 'INVALID_INPUT', shape: null,
+    message: 'Conv1D expects a 3D tensor [B, C, L]. Got a 2D tensor.',
+  }
+
+  const [batch, , L] = inputShape.length === 3 ? inputShape : [inputShape[0], inputShape[1], null]
+  if (L === null) return { shape: [batch, filters, null], error: null }
+
+  const effectiveK = dilation * (kernelSize - 1) + 1
+  const outL = Math.floor((L + 2 * padding - effectiveK) / stride + 1)
+
+  if (outL <= 0) {
+    return {
+      error: 'KERNEL_TOO_LARGE', shape: null,
+      message: `Conv1D: kernel [${kernelSize}] with stride ${stride} can't slide over length ${L}. ` +
+        `Output length would be ${outL}. Reduce kernel_size or increase padding.`,
+    }
+  }
+  return { shape: [batch, filters, outL], error: null }
+}
+
+// ─── CONV3D ───────────────────────────────────────────────────────────────────
+
+export function inferConv3D(inputShape, { filters, kernelSize, stride, padding, dilation = 1 }) {
+  if (!inputShape || inputShape.length < 4) return {
+    error: 'INVALID_INPUT', shape: null,
+    message: 'Conv3D expects a 5D tensor [B, C, D, H, W].',
+  }
+
+  const [batch, , D, H, W] = inputShape.length === 5
+    ? inputShape
+    : [inputShape[0], inputShape[1], inputShape[2], inputShape[3], null]
+
+  const effectiveK = dilation * (kernelSize - 1) + 1
+  const calc = n => n === null ? null : Math.floor((n + 2 * padding - effectiveK) / stride + 1)
+  const [oD, oH, oW] = [calc(D), calc(H), calc(W)]
+
+  if ((oD !== null && oD <= 0) || (oH !== null && oH <= 0) || (oW !== null && oW <= 0)) {
+    return {
+      error: 'KERNEL_TOO_LARGE', shape: null,
+      message: `Conv3D: kernel [${kernelSize}] produces non-positive output dims [${oD}×${oH}×${oW}]. Reduce kernel_size or increase padding.`,
+    }
+  }
+  return { shape: [batch, filters, oD, oH, oW], error: null }
+}
+
 // ─── CONV TRANSPOSE 2D ───────────────────────────────────────────────────────
 
 export function inferConvTranspose2D(inputShape, { filters, kernelSize, stride, padding, outputPadding = 0 }) {
@@ -70,7 +121,7 @@ export function inferMaxPool2D(inputShape, { kernelSize, stride, padding = 0 }) 
 // ─── AVGPOOL2D ────────────────────────────────────────────────────────────────
 
 export function inferAvgPool2D(inputShape, { kernelSize, stride, padding = 0 }) {
-  // Same formula as MaxPool2D
+
   return inferMaxPool2D(inputShape, { kernelSize, stride, padding })
 }
 
@@ -356,7 +407,7 @@ export function inferMerge(inputShapes, mode) {
     return { shape: a.map((d, i) => (d === null || b[i] === null) ? null : d), error: null }
   }
 
-  // CONCAT: channel dim (dim=1 in NCHW, dim=-1 otherwise)
+  
   const concatDim = a.length === 4 ? 1 : a.length - 1
   for (let i = 0; i < a.length; i++) {
     if (i === concatDim) continue
@@ -373,11 +424,12 @@ export function inferMerge(inputShapes, mode) {
   return { shape: outShape, error: null }
 }
 
-// ─── DISPATCH ─────────────────────────────────────────────────────────────────
 
 export function inferLayer(layerType, inputShape, config) {
   switch (layerType) {
     case 'Conv2D':             return inferConv2D(inputShape, config)
+    case 'Conv1D':             return inferConv1D(inputShape, config)
+    case 'Conv3D':             return inferConv3D(inputShape, config)
     case 'ConvTranspose2D':    return inferConvTranspose2D(inputShape, config)
     case 'MaxPool2D':          return inferMaxPool2D(inputShape, config)
     case 'AvgPool2D':          return inferAvgPool2D(inputShape, config)
@@ -398,12 +450,10 @@ export function inferLayer(layerType, inputShape, config) {
     case 'Embedding':          return inferEmbedding(inputShape, config)
     case 'LayerNorm':          return inferLayerNorm(inputShape)
     case 'Unknown':            return { shape: inputShape, error: null } // passthrough
-    // Merge handled separately in propagateGraph
+   
     default:                   return { shape: inputShape, error: null }
   }
 }
-
-// ─── TOPOLOGICAL SORT ────────────────────────────────────────────────────────
 
 export function topoSort(nodes, edges) {
   const adj = {}, inDegree = {}
@@ -425,8 +475,6 @@ export function topoSort(nodes, edges) {
   return sorted
 }
 
-// ─── GRAPH PROPAGATION ────────────────────────────────────────────────────────
-
 export function propagateGraph(nodes, edges, inputShape) {
   const results = {}
   const sorted = topoSort(nodes, edges)
@@ -447,9 +495,16 @@ export function propagateGraph(nodes, edges, inputShape) {
     const incomingEdges = edges.filter(e => e.target === nodeId)
     const parentShapes = incomingEdges.map(e => outputOf[e.source] || null)
 
-    // ── Merge ──
+
     if (lt === 'Merge') {
       const mode = node.data?.config?.mode || node.config?.mode || 'add'
+      
+      if (mode === 'branch') {
+        const firstShape = parentShapes.find(Boolean) ?? null
+        results[nodeId] = { inputShapes: parentShapes, inputShape: firstShape, outputShape: firstShape, error: null, message: null }
+        outputOf[nodeId] = firstShape
+        continue
+      }
       if (incomingEdges.length === 0) {
         results[nodeId] = { inputShapes: [], inputShape: null, outputShape: null, error: 'NO_INPUT', message: 'No connected inputs. Connect this layer to upstream layers.' }
         outputOf[nodeId] = null
@@ -487,7 +542,6 @@ export function propagateGraph(nodes, edges, inputShape) {
   return results
 }
 
-// ─── ERROR MESSAGES ──────────────────────────────────────────────────────────
 
 export function generateErrorMessage(layerType, inputShape, config, errorType) {
   if (!errorType) return null
@@ -496,7 +550,7 @@ export function generateErrorMessage(layerType, inputShape, config, errorType) {
   const messages = {
     KERNEL_TOO_LARGE:      `Kernel too large for input ${shapeStr}. Reduce kernel_size or increase padding.`,
     NOT_FLATTENED:         `${layerType} received ${shapeStr}. Add a Flatten layer before Dense.`,
-    NOT_FLATTENED_INPUT:   `Conv2D requires 4D tensor. Got ${shapeStr}.`,
+    NOT_FLATTENED_INPUT:   `Conv2D/Conv3D requires a spatial tensor. Got ${shapeStr}.`,
     NEGATIVE_DIM:          `Output dimension became negative. Input ${shapeStr} is too small for these parameters.`,
     MISSING_INPUT:         `No input connected to this layer.`,
     INVALID_INPUT:         `Invalid input shape ${shapeStr} for ${layerType}.`,
@@ -520,7 +574,6 @@ export function generateErrorMessage(layerType, inputShape, config, errorType) {
   return messages[errorType] || `Shape error in ${layerType}: ${errorType}`
 }
 
-// ─── FORMAT & PARAM UTILS ────────────────────────────────────────────────────
 
 export function formatShape(shape, format = 'NCHW') {
   if (!shape) return '???'
@@ -541,6 +594,18 @@ export function countParams(layerType, inputShape, config) {
       if (inC === null) return 0
       const { filters = 64, kernelSize = 3 } = config
       return filters * inC * kernelSize * kernelSize + filters
+    }
+    case 'Conv1D': {
+      const inC = inputShape[1]
+      if (inC === null) return 0
+      const { filters = 64, kernelSize = 3 } = config
+      return filters * inC * kernelSize + filters
+    }
+    case 'Conv3D': {
+      const inC = inputShape[1]
+      if (inC === null) return 0
+      const { filters = 64, kernelSize = 3 } = config
+      return filters * inC * kernelSize * kernelSize * kernelSize + filters
     }
     case 'ConvTranspose2D': {
       const inC = inputShape[1]

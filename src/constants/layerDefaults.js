@@ -1,7 +1,5 @@
-
-
 export const LAYER_TYPES = [
-  'Conv2D', 'ConvTranspose2D', 'MaxPool2D', 'AvgPool2D', 'GlobalAvgPool',
+  'Conv2D', 'Conv1D', 'Conv3D', 'ConvTranspose2D', 'MaxPool2D', 'AvgPool2D', 'GlobalAvgPool',
   'AdaptiveAvgPool', 'Upsample', 'ZeroPad2D',
   'Dense', 'Flatten', 'BatchNorm', 'GroupNorm', 'Dropout',
   'Merge', 'Reshape', 'Permute',
@@ -10,6 +8,8 @@ export const LAYER_TYPES = [
 
 export const LAYER_DEFAULTS = {
   Conv2D:         { filters: 64, kernelSize: 3, stride: 1, padding: 1, dilation: 1 },
+  Conv1D:         { filters: 64, kernelSize: 3, stride: 1, padding: 0, dilation: 1 },
+  Conv3D:         { filters: 64, kernelSize: 3, stride: 1, padding: 0, dilation: 1 },
   ConvTranspose2D:{ filters: 64, kernelSize: 2, stride: 2, padding: 0, outputPadding: 0 },
   MaxPool2D:      { kernelSize: 2, stride: 2, padding: 0 },
   AvgPool2D:      { kernelSize: 2, stride: 2, padding: 0 },
@@ -34,6 +34,8 @@ export const LAYER_DEFAULTS = {
 
 export const LAYER_PARAM_RANGES = {
   Conv2D:         { filters: { min: 1, max: 2048, step: 1 }, kernelSize: { min: 1, max: 11, step: 2 }, stride: { min: 1, max: 4, step: 1 }, padding: { min: 0, max: 8, step: 1 }, dilation: { min: 1, max: 4, step: 1 } },
+  Conv1D:         { filters: { min: 1, max: 2048, step: 1 }, kernelSize: { min: 1, max: 11, step: 2 }, stride: { min: 1, max: 4, step: 1 }, padding: { min: 0, max: 8, step: 1 }, dilation: { min: 1, max: 4, step: 1 } },
+  Conv3D:         { filters: { min: 1, max: 2048, step: 1 }, kernelSize: { min: 1, max: 7,  step: 2 }, stride: { min: 1, max: 4, step: 1 }, padding: { min: 0, max: 4, step: 1 }, dilation: { min: 1, max: 4, step: 1 } },
   ConvTranspose2D:{ filters: { min: 1, max: 2048, step: 1 }, kernelSize: { min: 1, max: 8, step: 1 }, stride: { min: 1, max: 4, step: 1 }, padding: { min: 0, max: 8, step: 1 } },
   MaxPool2D:      { kernelSize: { min: 2, max: 8, step: 1 }, stride: { min: 1, max: 4, step: 1 }, padding: { min: 0, max: 4, step: 1 } },
   AvgPool2D:      { kernelSize: { min: 2, max: 8, step: 1 }, stride: { min: 1, max: 4, step: 1 }, padding: { min: 0, max: 4, step: 1 } },
@@ -58,9 +60,11 @@ export const LAYER_PARAM_RANGES = {
 
 export const LAYER_COLORS = {
   Conv2D:             '#00E5FF',
-  ConvTranspose2D:    '#00BCD4',  // teal — inverse of Conv
+  Conv1D:             '#00B8D4',  
+  Conv3D:             '#0097A7',  
+  ConvTranspose2D:    '#00BCD4',
   MaxPool2D:          '#7C3AED',
-  AvgPool2D:          '#9333EA',  // slightly different purple
+  AvgPool2D:          '#9333EA', 
   GlobalAvgPool:      '#6D28D9',
   AdaptiveAvgPool:    '#7C3AED',
   Upsample:           '#06B6D4',
@@ -76,13 +80,15 @@ export const LAYER_COLORS = {
   Permute:            '#34D399',
   MultiHeadAttention: '#A855F7',
   LSTM:               '#F472B6',
-  GRU:                '#E879F9',  // lighter magenta — cousin of LSTM
+  GRU:                '#E879F9', 
   Embedding:          '#FB923C',
   LayerNorm:          '#94A3B8',
 }
 
 export const LAYER_TYPE_BADGE = {
   Conv2D:             'CONV',
+  Conv1D:             'CONV1',
+  Conv3D:             'CONV3',
   ConvTranspose2D:    'TCONV',
   MaxPool2D:          'MPOOL',
   AvgPool2D:          'APOOL',
@@ -108,6 +114,8 @@ export const LAYER_TYPE_BADGE = {
 
 export const LAYER_TOOLTIPS = {
   Conv2D:             'filters=64, k=3, s=1, pad=1',
+  Conv1D:             'filters=64, k=3, s=1 — 1-D convolution over sequences/audio',
+  Conv3D:             'filters=64, k=3, s=1 — 3-D convolution over volumetric data',
   ConvTranspose2D:    'k=2, s=2 — learned upsampling (decoder / generative)',
   MaxPool2D:          'k=2, s=2, pad=0',
   AvgPool2D:          'k=2, s=2 — average instead of max',
