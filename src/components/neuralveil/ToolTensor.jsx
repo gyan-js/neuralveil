@@ -217,8 +217,8 @@ function ErrorSelector({ scenarios, visible }) {
               background: i === active ? '#1a1108' : 'transparent',
               border: '1px solid',
               borderBottom: 'none',
-              borderColor: i === active ? '#e8650a' : '#2a1f15',
-              color: i === active ? '#e8650a' : '#4a3d30',
+              borderColor: i === active ? '#d39a1f' : '#2a1f15',
+              color: i === active ? '#d39a1f' : '#4a3d30',
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: '10px',
               letterSpacing: '0.1em',
@@ -233,7 +233,7 @@ function ErrorSelector({ scenarios, visible }) {
           >
             <span style={{ fontSize: '14px', opacity: i === active ? 1 : 0.5 }}>{s.icon}</span>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '9px', color: i === active ? '#f07820' : '#3a2d20', marginBottom: '1px' }}>{s.tag}</div>
+              <div style={{ fontSize: '9px', color: i === active ? '#d39a1f' : '#3a2d20', marginBottom: '1px' }}>{s.tag}</div>
               <div>{s.label}</div>
             </div>
             {i === active && (
@@ -249,7 +249,7 @@ function ErrorSelector({ scenarios, visible }) {
    
       <div style={{
         background: '#0f0b07',
-        border: '1px solid #e8650a',
+        border: '1px solid #d39a1f',
         borderTop: '1px solid #e8650a',
         padding: '0',
         borderRadius: '0 0 4px 4px',
@@ -627,7 +627,7 @@ export default function ToolTensor() {
           </div>
 
          
-          <FeatureCards features={tensorFeatures} accentColor="#e8650a" />
+          <FeatureCards features={tensorFeatures} accentColor="#d39a1f" />
         </div>
 
    

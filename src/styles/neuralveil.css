@@ -4,11 +4,11 @@
 :root {
   --void: #0a0804;
   --forge-deep: #0f0b07;
-  --ember: #e8650a;
-  --flame: #f07820;
-  --hot: #ff4500;
+  --ember: #f4c45a;
+  --flame: #e1b54a;
+  --hot: #D39A1F;
   --ash: #8a7560;
-  --spark: #ffb347;
+  --spark: #c27b12;
 }
 
 * {

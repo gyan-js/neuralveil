@@ -5,7 +5,7 @@ import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
 import {Link} from 'react-router'
 const stats = [
   { num: '02', label: 'precision tools', sub: 'shape tracer + vram estimator' },
-  { num: '0MS', label: 'serever latency', sub: 'no backend, runs entirely in your browser' },
+  { num: '0ms', label: 'serever latency', sub: 'no backend, runs entirely in your browser' },
   { num: '01', label: 'toolkit to rule them', sub: 'browser-native, zero backend' },
 ]
 

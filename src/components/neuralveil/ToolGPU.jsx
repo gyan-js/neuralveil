@@ -209,7 +209,7 @@ function ErrorSelector({ scenarios, visible }) {
     }, 80)
   }
 
-  const accent = '#f07820'
+  const accent = '#d39a1f'
 
   return (
     <div>
@@ -611,7 +611,7 @@ export default function ToolGPU() {
           transition: 'all 0.7s ease 0.4s',
         }}>
  
-          <FeatureCards features={gpuFeatures} accentColor="#f07820" />
+          <FeatureCards features={gpuFeatures} accentColor="#b8871e" />
 
       
           <div>
