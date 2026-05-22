@@ -36,6 +36,8 @@ export default function ControlBar() {
   const setIncludeOverhead = useMemoryStore((s) => s.setIncludeOverhead)
   const setGradientCheckpointing = useMemoryStore((s) => s.setGradientCheckpointing)
   const loadPreset = useMemoryStore((s) => s.loadPreset)
+  const selectedModel = useMemoryStore((s) => s.selectedModel)
+  const setSelectedModel = useMemoryStore((s) => s.setSelectedModel)
 
   const [copied, setCopied] = React.useState(false)
 
@@ -154,8 +156,8 @@ export default function ControlBar() {
           {PRESETS.map((p) => (
             <button
               key={p.label}
-              className="btn-preset"
-              onClick={() => loadPreset(p.data)}
+              className={`btn-preset ${selectedModel === p.label ? 'btn-preset-active' : ''}`}
+              onClick={() => { loadPreset(p.data); setSelectedModel(p.label) }}
             >
               {p.label}
             </button>
@@ -227,6 +229,12 @@ export default function ControlBar() {
         .btn-preset:hover {
           border-color: var(--nf-purple);
           background: rgba(180,143,255,0.08);
+        }
+        .btn-preset-active {
+          border-color: var(--nf-purple) !important;
+          background: rgba(180,143,255,0.18) !important;
+          color: var(--nf-purple) !important;
+          box-shadow: 0 0 0 1px var(--nf-purple);
         }
         .btn-share {
           width: 100%;
