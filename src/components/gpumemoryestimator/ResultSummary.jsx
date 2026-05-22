@@ -27,6 +27,7 @@ export default function ResultSummary() {
   const batchSize = useMemoryStore((s) => s.batchSize)
   const mode = useMemoryStore((s) => s.mode)
   const gradientCheckpointing = useMemoryStore((s) => s.gradientCheckpointing)
+  const selectedModel = useMemoryStore((s) => s.selectedModel)
 
   function handleExport() {
     exportCSV({ layers, results, precision, batchSize, mode })
@@ -61,10 +62,15 @@ export default function ResultSummary() {
       <div className="rs-top">
         <div className="rs-cards">
           <StatCard
+            label="Selected Model"
+            value={selectedModel ?? 'Custom'}
+            sub={selectedModel && selectedModel !== 'Custom' ? mode : 'user-defined'}
+            accent={selectedModel !== 'Custom'}
+          />
+          <StatCard
             label="Total VRAM"
             value={`${total.toFixed(2)} GB`}
             sub={`batch=${batchSize} · ${precision}`}
-            accent
           />
           <StatCard
             label="Weights"
@@ -139,7 +145,7 @@ export default function ResultSummary() {
         .rs-top { display: flex; flex-direction: column; gap: 14px; }
         .rs-cards {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 8px;
         }
         .stat-card {
@@ -158,10 +164,11 @@ export default function ResultSummary() {
         }
         .stat-value {
           font-family: 'Syne', sans-serif;
-          font-size: 18px;
+          font-size: clamp(11px, 1.5vw, 18px);
           font-weight: 700;
           color: var(--nf-text);
-          line-height: 1;
+          line-height: 1.2;
+          word-break: break-word;
         }
         .stat-card-accent .stat-value { color: var(--nf-accent); }
         .stat-sub {
