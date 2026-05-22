@@ -23,7 +23,7 @@ const PRECISION_BADGE_COLOR = {
   int4: 'var(--nf-red)',
 }
 
-function LayerRow({ layer, index, precisionBytes }) {
+function LayerRow({ layer, index, precisionBytes, onRemove }) {
   const updateLayer = useMemoryStore((s) => s.updateLayer)
   const removeLayer = useMemoryStore((s) => s.removeLayer)
   const params = calcLayerParams(layer)
@@ -36,6 +36,11 @@ function LayerRow({ layer, index, precisionBytes }) {
   function handlePrecisionChange(e) {
     const val = e.target.value
     updateLayer(layer.id, { precision: val === 'global' ? null : val })
+  }
+
+  function handleRemove() {
+    removeLayer(layer.id)
+    onRemove()
   }
 
   return (
@@ -75,7 +80,7 @@ function LayerRow({ layer, index, precisionBytes }) {
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
-      <button className="lr-remove" onClick={() => removeLayer(layer.id)} title="Remove layer">
+      <button className="lr-remove" onClick={handleRemove} title="Remove layer">
         ×
       </button>
     </div>
@@ -87,6 +92,7 @@ export default function LayerInput() {
   const precision = useMemoryStore((s) => s.precision)
   const addLayerAction = useMemoryStore((s) => s.addLayer)
   const clearLayers = useMemoryStore((s) => s.clearLayers)
+  const setSelectedModel = useMemoryStore((s) => s.setSelectedModel)
 
   const precisionBytes = PRECISION_BYTES[precision]
 
@@ -105,6 +111,7 @@ export default function LayerInput() {
 
   function onSubmit(data) {
     addLayerAction(selectedType)
+    setSelectedModel('Custom')
     const st = useMemoryStore.getState()
     const last = st.layers[st.layers.length - 1]
     if (last) {
@@ -131,7 +138,7 @@ export default function LayerInput() {
           <div className="empty-layers">Load a preset or add layers below</div>
         ) : (
           layers.map((layer, i) => (
-            <LayerRow key={layer.id} layer={layer} index={i} precisionBytes={precisionBytes} />
+            <LayerRow key={layer.id} layer={layer} index={i} precisionBytes={precisionBytes} onRemove={() => setSelectedModel('Custom')} />
           ))
         )}
       </div>
@@ -358,4 +365,3 @@ export default function LayerInput() {
     </div>
   )
 }
-
