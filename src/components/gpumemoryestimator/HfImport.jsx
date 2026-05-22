@@ -109,11 +109,12 @@ const ERROR_META = {
 
 export default function HFImport() {
   const loadPreset = useMemoryStore((s) => s.loadPreset)
+  const setSelectedModel = useMemoryStore((s) => s.setSelectedModel)
 
   const [modelName, setModelName]   = useState('')
   const [loading, setLoading]       = useState(false)
-  const [error, setError]           = useState(null)   // { message, type }
-  const [success, setSuccess]       = useState(null)   // { arch, info }
+  const [error, setError]           = useState(null)   
+  const [success, setSuccess]       = useState(null)  
 
   async function handleImport() {
     const name = modelName.trim()
@@ -126,6 +127,7 @@ export default function HFImport() {
       const config = await fetchHFConfig(name)
       const { layers, arch, info } = parseHFConfig(config)
       loadPreset({ layers })
+      setSelectedModel(name)
       setSuccess({ arch, info, name })
     } catch (e) {
       setError({ message: e.message, type: e.type || 'api_error' })
