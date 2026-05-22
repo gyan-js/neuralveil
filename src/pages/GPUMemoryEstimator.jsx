@@ -12,6 +12,8 @@ import CustomGPUPanel from '../components/gpumemoryestimator/CustomGPUPanel.jsx'
 import TimelineChart from '../components/gpumemoryestimator/TimelineChart.jsx'
 import CodegenPanel from '../components/gpumemoryestimator/CodegenPanel.jsx'
 import ExportPanel from '../components/gpumemoryestimator/ExportPanel.jsx'
+import QuantCompare from '../components/gpumemoryestimator/QuantCompare.jsx'
+import DistributedPanel from '../components/gpumemoryestimator/DistributedPanel.jsx'
 
 import useMemoryStore from '../store/useMemoryStore.js'
 import { deserializeFromURL } from '../utils/urlShare.js'
@@ -114,7 +116,7 @@ export const GPUMemoryEstimator = () => {
           <span className="logo-title">GPU Memory Estimator</span>
         </div>
         <div className="app-header-right">
-          <div className="app-badge">v3.0</div>
+          <div className="app-badge">v4.0</div>
         </div>
       </header>
 
@@ -149,7 +151,7 @@ export const GPUMemoryEstimator = () => {
             <ResultSummary />
           </section>
 
-          {/* ── Collapsible panels ── */}
+
 
           <CollapsePanel
             id={1}
@@ -217,6 +219,28 @@ export const GPUMemoryEstimator = () => {
           </CollapsePanel>
 
           <CollapsePanel
+            id={9}
+            label="Quantization Impact Calculator"
+            icon="⬡"
+            accent="#00e5a0"
+            defaultOpen={false}
+            badge="FP32 → INT4"
+          >
+            <QuantCompare />
+          </CollapsePanel>
+
+          <CollapsePanel
+            id={10}
+            label="Distributed Training Cost Model"
+            icon="⇶"
+            accent="#a78bfa"
+            defaultOpen={false}
+            badge="Training Mode Only"
+          >
+            <DistributedPanel />
+          </CollapsePanel>
+
+          <CollapsePanel
             id={7}
             label="PyTorch Config Codegen"
             icon="{ }"
@@ -235,6 +259,8 @@ export const GPUMemoryEstimator = () => {
           >
             <ExportPanel />
           </CollapsePanel>
+
+      
 
         </main>
       </div>
