@@ -4,9 +4,12 @@ import { runMemoryPipeline, sweepBatchSizes } from '../engine/memoryEngine.js'
 import { estimateCost, estimateTrainingHours } from '../engine/costEngine.js'
 import { analyzeConstraints, generateCode } from '../engine/codegenEngine.js'
 import { LAYER_TYPE_MAP } from '../constants/layerTypes.js'
+import { calcQuantComparisonTable } from '../engine/quantEngine.js'
+import { runDistributedComparison } from '../engine/distributedEngine.js'
 
 let _nextId = 1
 const nextId = () => _nextId++
+
 
 function loadCustomGPUs() {
   try {
@@ -31,9 +34,8 @@ function recalculate(state) {
     gradientCheckpointing: state.gradientCheckpointing,
     customGPUs: state.customGPUs,
   }
-  const results = runMemoryPipeline(pipelineConfig)
+  const results      = runMemoryPipeline(pipelineConfig)
   const sweepResults = sweepBatchSizes(pipelineConfig)
-
 
   const constraintFlags = analyzeConstraints(results, {
     mode: state.mode,
@@ -49,6 +51,29 @@ function recalculate(state) {
   })
 
 
+  const fp32Bytes = PRECISION_BYTES['fp32'] ?? 4
+  const fp32WeightsGB = results.weights.total * (fp32Bytes / precisionBytes)
+  const quantComparisonResults = calcQuantComparisonTable(
+    fp32WeightsGB,
+    results.activations.total,
+    state.mode,
+  )
+
+  
+  let distributedResults = null
+  if (state.mode === 'training') {
+    distributedResults = runDistributedComparison({
+      layers:       state.layers,
+      weightsGB:    results.totals.weightsGB,
+      activationsGB: results.totals.activationsGB,
+      gradientsGB:  results.totals.gradientsGB,
+      optimizerGB:  results.totals.optimizerGB,
+      numGPUs:      state.distributedConfig.numGPUs,
+      strategy:     state.distributedConfig.strategy,
+    })
+  }
+
+ 
   let costResults = null
   if (state.costConfig && state.mode === 'training') {
     const { datasetTokens, numEpochs, numGPUs } = state.costConfig
@@ -64,11 +89,19 @@ function recalculate(state) {
     costResults = { ...costEst, timeEstimate: timeEst }
   }
 
-  return { results, sweepResults, generatedCode, constraintFlags, costResults }
+  return {
+    results,
+    sweepResults,
+    generatedCode,
+    constraintFlags,
+    costResults,
+    quantComparisonResults,
+    distributedResults,
+  }
 }
 
 const useMemoryStore = create((set, get) => ({
-  
+
   layers: [],
   batchSize: 1,
   precision: 'fp16',
@@ -78,14 +111,25 @@ const useMemoryStore = create((set, get) => ({
   gradientCheckpointing: false,
   results: null,
   sweepResults: [],
+  selectedModel: 'GPT-2 Small',
 
-
-  customGPUs: loadCustomGPUs(),   
-  costConfig: null,            
+ 
+  customGPUs: loadCustomGPUs(),
+  costConfig: null,
   costResults: null,
-  generatedCode: [],           
+  generatedCode: [],
   constraintFlags: {},
 
+  
+  quantComparisonResults: [],       
+  selectedQuantSchemes: ['fp32', 'fp16', 'bf16', 'int8', 'int4_gptq', 'int4_awq', 'nf4_bnb'], // all enabled
+  activeQuantScheme: 'fp32',       
+
+  
+  distributedConfig: { numGPUs: 1, strategy: 'DDP' },
+  distributedResults: null,          
+
+  
   addLayer(type) {
     const def = LAYER_TYPE_MAP[type]
     const newLayer = {
@@ -117,7 +161,6 @@ const useMemoryStore = create((set, get) => ({
     })
   },
 
-  
   setBatchSize(n) {
     set((s) => { const next = { ...s, batchSize: Math.max(1, n) }; return { ...next, ...recalculate(next) } })
   },
@@ -137,7 +180,7 @@ const useMemoryStore = create((set, get) => ({
     set((s) => { const next = { ...s, gradientCheckpointing: v }; return { ...next, ...recalculate(next) } })
   },
 
-  // ── V3: Cost config ───────────────────────────────────────────
+  
   setCostConfig(cfg) {
     set((s) => { const next = { ...s, costConfig: cfg }; return { ...next, ...recalculate(next) } })
   },
@@ -160,7 +203,37 @@ const useMemoryStore = create((set, get) => ({
     })
   },
 
-  
+ 
+  setSelectedQuantSchemes(schemes) {
+    set((s) => ({ ...s, selectedQuantSchemes: schemes }))
+  },
+  setActiveQuantScheme(scheme) {
+    
+    set((s) => {
+      const next = { ...s, activeQuantScheme: scheme }
+      return { ...next, ...recalculate(next) }
+    })
+  },
+
+ 
+  setNumGPUs(n) {
+    set((s) => {
+      const next = { ...s, distributedConfig: { ...s.distributedConfig, numGPUs: Math.max(1, n) } }
+      return { ...next, ...recalculate(next) }
+    })
+  },
+  setDistributedStrategy(strategy) {
+    set((s) => {
+      const next = { ...s, distributedConfig: { ...s.distributedConfig, strategy } }
+      return { ...next, ...recalculate(next) }
+    })
+  },
+
+  setSelectedModel(name) {
+    set(() => ({ selectedModel: name }))
+  },
+
+ 
   loadPreset(json) {
     _nextId = 1
     const layers = (json.layers || []).map((l) => ({ ...l, id: nextId() }))
@@ -178,7 +251,7 @@ const useMemoryStore = create((set, get) => ({
   },
 
   clearLayers() {
-    set((s) => { const next = { ...s, layers: [] }; return { ...next, ...recalculate(next) } })
+    set((s) => { const next = { ...s, layers: [], selectedModel: 'Custom' }; return { ...next, ...recalculate(next) } })
   },
 }))
 
