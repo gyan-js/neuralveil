@@ -1186,3 +1186,77 @@ export function parseCode(codeString) {
     framework,
   }
 }
+
+
+
+export function computeConfidence(codeString, parseResult) {
+  if (!codeString || !codeString.trim()) return 0.0
+
+  let score = 0.7  
+
+  const code = codeString
+
+
+
+  if (/nn\.Sequential\s*\(\s*\*\w+/.test(code)) {
+    score -= 0.4
+  }
+
+ 
+  if (/for\s+\w+\s+in\s+.+:\s*\n\s+self\.\w+\s*=/.test(code)) {
+    score -= 0.3
+  }
+
+  const varArgMatches = code.match(/nn\.\w+\s*\(\s*[a-zA-Z_]\w*\s*[,)]/g) || []
+  const varArgPenalty = Math.min(varArgMatches.length * 0.1, 0.4)
+  score -= varArgPenalty
+
+  const hasCustomModule = /class\s+\w+\s*\(\s*(?:nn\.Module|torch\.nn\.Module)\s*\)/.test(code)
+  const hasOnlySequential = /nn\.Sequential\s*\(/.test(code) &&
+    !/def\s+forward\s*\(self/.test(code)
+  if (hasCustomModule && !hasOnlySequential) {
+    score -= 0.2
+  }
+
+  
+  const allLiteralArgs = /nn\.\w+\s*\([\d\s,\.]+\)/g
+  const literalMatches = code.match(allLiteralArgs) || []
+  if (literalMatches.length > 0 && literalMatches.length === varArgMatches.length + literalMatches.length) {
+    score += 0.2
+  }
+
+  
+  if (hasOnlySequential) {
+    score += 0.3
+  }
+
+ 
+  const forwardBody = code.match(/def\s+forward\s*\(self[^)]*\)\s*:([\s\S]*?)(?=\n\s{0,4}def\s|\n\s{0,4}class\s|$)/)?.[1] || ''
+  const forwardComplexity = (forwardBody.match(/\b(if|for|while|try)\b/g) || []).length
+  if (forwardComplexity === 0) {
+    score += 0.1
+  }
+
+ 
+  const { nodes = [] } = parseResult
+  const unknownCount = nodes.filter(n => n.type === 'Unknown').length
+  const totalLayerNodes = nodes.filter(n => n.type !== 'Input').length
+  if (totalLayerNodes > 0 && unknownCount === 0) {
+    score += 0.2
+  }
+
+  return Math.max(0.0, Math.min(1.0, score))
+}
+
+
+export function parseWithFallback(codeString, threshold = 0.6) {
+  const result = parseCode(codeString)
+  const confidence = computeConfidence(codeString, result)
+  const needsCLI = confidence < threshold
+
+  return {
+    ...result,
+    confidence,
+    needsCLI,
+  }
+}
