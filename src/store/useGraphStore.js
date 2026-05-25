@@ -1,4 +1,3 @@
-
 import { create } from 'zustand'
 import { addEdge, applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import { propagateGraph, countParams } from '../engine/shapeEngine.js'
@@ -154,6 +153,12 @@ export const useGraphStore = create((set, get) => {
     importFramework: null,
     showCodeImport: false,
 
+    
+    executionMode: 'static',     
+    cliErrors: [],               
+    parseConfidence: null,     
+    showCLIBanner: false,      
+
     onNodesChange: (changes) => {
       set(state => ({ nodes: applyNodeChanges(changes, state.nodes) }))
     },
@@ -271,6 +276,72 @@ export const useGraphStore = create((set, get) => {
     openCodeImport: () => set({ showCodeImport: true }),
     closeCodeImport: () => set({ showCodeImport: false, importErrors: [], importWarnings: [] }),
 
+   
+     
+    loadFromCLI: (cliJSON) => {
+      try {
+      
+        if (!cliJSON?.nodes || !Array.isArray(cliJSON.nodes)) {
+          throw new Error('Invalid CLI JSON: missing nodes array.')
+        }
+        if (!cliJSON?.edges || !Array.isArray(cliJSON.edges)) {
+          throw new Error('Invalid CLI JSON: missing edges array.')
+        }
+
+        const nodes = cliJSON.nodes.map((n, i) => ({
+          id: n.id,
+          type: getNodeType(n.type),
+          position: n.position || { x: 300, y: 30 + i * 135 },
+          deletable: n.type !== 'Input',
+          data: {
+            layerType: n.type,
+            config: n.config || {},
+            bootDelay: i,
+            // CLI-verified shape data
+            verifiedInputShape:  n.verifiedInputShape  ?? null,
+            verifiedOutputShape: n.verifiedOutputShape ?? null,
+            paramCount:          n.paramCount          ?? 0,
+            layerName:           n.layerName           ?? n.id,
+            cliVerified: true,
+          },
+        }))
+
+        const edges = cliJSON.edges.map(e => ({
+          ...e,
+          type: 'shapeEdge',
+          id: e.id || `e-${e.source}-${e.target}`,
+        }))
+
+        const inputShape  = cliJSON.inputShape || get().inputShape
+        const results     = propagateGraph(nodes, edges, inputShape)
+
+        window.history.replaceState(null, '', window.location.pathname)
+
+        set({
+          nodes,
+          edges,
+          inputShape,
+          shapeResults: results,
+          selectedNodeId: null,
+          executionMode: 'cli',
+          cliErrors: cliJSON.errors || [],
+          parseConfidence: 1.0,
+          showCLIBanner: false,
+          importErrors: [],
+          importWarnings: cliJSON.warnings || [],
+        })
+
+        if ((cliJSON.warnings || []).length > 0) {
+          setTimeout(() => set({ importWarnings: [] }), 10000)
+        }
+      } catch (e) {
+        console.error('loadFromCLI failed:', e)
+        set({ cliErrors: [e.message] })
+      }
+    },
+
+    dismissCLIBanner: () => set({ showCLIBanner: false }),
+
     detectFrameworkLive: async (codeString) => {
       const { detectFramework } = await import('../engine/parseEngine.js')
       const fw = detectFramework(codeString || '')
@@ -278,24 +349,26 @@ export const useGraphStore = create((set, get) => {
     },
 
     importFromCode: async (codeString) => {
-      const { parseCode } = await import('../engine/parseEngine.js')
+      const { parseWithFallback } = await import('../engine/parseEngine.js')
 
       if (!codeString || !codeString.trim()) {
         set({ importErrors: ['No code provided. Paste your PyTorch or Keras model.'], importWarnings: [] })
         return
       }
 
-      const result = parseCode(codeString)
+      const result = parseWithFallback(codeString)
 
       if (result.errors.length > 0 && result.nodes.length === 0) {
         set({
           importErrors: result.errors,
           importWarnings: result.warnings,
           importFramework: result.framework,
+          executionMode: 'static',
+          parseConfidence: result.confidence,
+          showCLIBanner: result.needsCLI,
         })
         return
       }
-
 
       const json = {
         version: '1.0',
@@ -312,9 +385,12 @@ export const useGraphStore = create((set, get) => {
         importErrors: [],
         importWarnings: result.warnings,
         importFramework: result.framework,
+        executionMode: 'static',
+        parseConfidence: result.confidence,
+        showCLIBanner: result.needsCLI,
+        cliErrors: [],
       })
 
-    
       if (result.warnings.length > 0) {
         setTimeout(() => set({ importWarnings: [] }), 8000)
       }
