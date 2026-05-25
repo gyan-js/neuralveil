@@ -139,10 +139,10 @@ export async function loadFromFile(file) {
     throw new ParseError(`"${file.name}" is not valid JSON: ${e.message}`)
   }
 
-  // Validate schema
+ 
   const schemaErrors = validateCLISchema(parsed)
   if (schemaErrors.length > 0) {
-    // Separate hard errors from type warnings
+    
     const hard = schemaErrors.filter(e => !e.includes('unknown layer type'))
     if (hard.length > 0) {
       throw new ParseError(
