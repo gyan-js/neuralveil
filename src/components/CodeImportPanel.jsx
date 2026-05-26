@@ -103,7 +103,7 @@ const EXAMPLES = [
           self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
           self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
           self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-          self.flatten = nn.Flatten()
+          self.flatten = nn.Flatten(start_dim=1)
           self.fc1 = nn.Linear(128, 512)
           self.drop = nn.Dropout(p=0.5)
           self.fc2 = nn.Linear(512, 10)
