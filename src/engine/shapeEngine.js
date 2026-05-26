@@ -163,18 +163,25 @@ export function inferZeroPad2D(inputShape, { padding = 1 }) {
   return { shape: [batch, channels, outH, outW], error: null }
 }
 
-// ─── DENSE (LINEAR) ───────────────────────────────────────────────────────────
 
-export function inferDense(inputShape, { units }) {
-  if (!inputShape) return { error: 'MISSING_INPUT', shape: null }
-  if (inputShape.length > 2) {
+export function inferDense(inputShape, { units, inFeatures }) {
+  if (!inputShape || inputShape.length === 0) return { error: 'MISSING_INPUT', shape: null }
+
+  const inF = inputShape[inputShape.length - 1]
+  const outputShape = [...inputShape.slice(0, -1), units]
+
+ 
+  if (inFeatures != null && inF !== null && inF !== inFeatures) {
     return {
-      error: 'NOT_FLATTENED', shape: null,
-      message: `Dense received ${inputShape.length}D tensor. Dense requires 2D [B, features]. ` +
-        `Add a Flatten or GlobalAvgPool layer before Dense.`,
+      shape: outputShape,
+      error: 'FEATURE_MISMATCH',
+      warning: true,
+      message: `Dense in_features mismatch: layer expects ${inFeatures}, got ${inF}. ` +
+        `Output shape propagated as ${formatShape(outputShape)}.`,
     }
   }
-  return { shape: [inputShape[0], units], error: null }
+
+  return { shape: outputShape, error: null }
 }
 
 // ─── FLATTEN ──────────────────────────────────────────────────────────────────
@@ -528,14 +535,17 @@ export function propagateGraph(nodes, edges, inputShape) {
     }
 
     const config = node.data?.config ?? node.config ?? {}
-    const { shape, error, message } = inferLayer(lt, inShape, config)
+    const { shape, error, warning, message } = inferLayer(lt, inShape, config)
 
     results[nodeId] = {
       inputShape: inShape,
       outputShape: shape,
-      error,
+    
+      error: (error && !shape) ? error : null,
+      warning: warning ?? (error && !!shape ? error : null),
       message: message || generateErrorMessage(lt, inShape, config, error),
     }
+   
     outputOf[nodeId] = shape
   }
 
@@ -549,8 +559,9 @@ export function generateErrorMessage(layerType, inputShape, config, errorType) {
 
   const messages = {
     KERNEL_TOO_LARGE:      `Kernel too large for input ${shapeStr}. Reduce kernel_size or increase padding.`,
-    NOT_FLATTENED:         `${layerType} received ${shapeStr}. Add a Flatten layer before Dense.`,
+  
     NOT_FLATTENED_INPUT:   `Conv2D/Conv3D requires a spatial tensor. Got ${shapeStr}.`,
+    FEATURE_MISMATCH:      `Dense in_features mismatch at input ${shapeStr}. Output shape propagated with target units.`,
     NEGATIVE_DIM:          `Output dimension became negative. Input ${shapeStr} is too small for these parameters.`,
     MISSING_INPUT:         `No input connected to this layer.`,
     INVALID_INPUT:         `Invalid input shape ${shapeStr} for ${layerType}.`,
