@@ -28,9 +28,10 @@ function ParamChip({ label, value }) {
 }
 
 export default function LayerNode({ id, data }) {
-  const { layerType, config, bootDelay = 0 } = data
+  const { layerType, config, bootDelay = 0, cliVerified = false } = data
   const shapeResults  = useGraphStore(s => s.shapeResults)
   const format        = useGraphStore(s => s.format)
+  const executionMode = useGraphStore(s => s.executionMode)
   const selectedNodeId = useGraphStore(s => s.selectedNodeId)
   const selectNode    = useGraphStore(s => s.selectNode)
   const deselectNode  = useGraphStore(s => s.deselectNode)
@@ -63,12 +64,13 @@ export default function LayerNode({ id, data }) {
   }, [format])
 
   const result      = shapeResults[id]
-  const inputShape  = result?.inputShape  ?? null
-  const outputShape = result?.outputShape ?? null
+  const inputShape  = data.verifiedInputShape  ?? result?.inputShape  ?? null
+  const outputShape = data.verifiedOutputShape ?? result?.outputShape ?? null
   const hasError    = !!result?.error
   const isSelected  = selectedNodeId === id
+  const isCLIMode   = executionMode === 'cli' || cliVerified
 
-  const params     = inputShape ? countParams(layerType, inputShape, config) : 0
+  const params     = inputShape ? countParams(layerType, inputShape, config) : (data.paramCount ?? 0)
   const highParams = params > 5e6
 
   const accentColor = LAYER_COLORS[layerType] || '#00E5FF'
@@ -78,6 +80,7 @@ export default function LayerNode({ id, data }) {
   if (isSelected)       glowClass = 'node-selected'
   else if (hasError)    glowClass = 'node-error error-pulse-anim'
   else if (highParams)  glowClass = 'node-warning'
+  else if (isCLIMode)   glowClass = 'node-cli-verified'
   if (rippling)         glowClass += ' shape-ripple'
 
   const renderConfigChips = () => {
@@ -290,10 +293,25 @@ export default function LayerNode({ id, data }) {
           }}>
             {badge}
           </span>
+          {isCLIMode && !hasError && (
+            <span
+              title="Shapes verified by local PyTorch execution via NeuralVeil CLI"
+              style={{
+                fontFamily: 'JetBrains Mono', fontSize: 8,
+                background: 'rgba(168,85,247,0.15)',
+                border: '1px solid rgba(168,85,247,0.4)',
+                color: '#a855f7',
+                padding: '1px 6px', borderRadius: 4, letterSpacing: '0.06em',
+                cursor: 'help',
+              }}
+            >
+              CLI ✓
+            </span>
+          )}
           {hasError
             ? <AlertTriangle size={12} color="#FF6B35" />
             : outputShape
-              ? <CheckCircle2 size={12} color="#39FF14" strokeWidth={2.5} />
+              ? <CheckCircle2 size={12} color={isCLIMode ? '#a855f7' : '#39FF14'} strokeWidth={2.5} />
               : null
           }
         </div>
