@@ -12,7 +12,7 @@ export default function App() {
  
       <Routes>
         <Route path="/" element={<Neuralveil />} />
-        <Route path="/b7f4d9a3c2e81f6ab94d7735f1c8e4a6d2b5f0c19a7e3d84b6c1f92e5a7d3c8f" element={<TensorShapeDebugger />} />
+       
       </Routes>
     </>
   )
