@@ -76,12 +76,28 @@ export default function LayerNode({ id, data }) {
   const accentColor = LAYER_COLORS[layerType] || '#00E5FF'
   const badge       = LAYER_TYPE_BADGE[layerType] || '??'
 
+  
+  const ERROR_COLORS = {
+    MISSING_INPUT: '#FFE155',
+    NO_INPUT:      '#FFE155',
+  }
+  const errorColor = hasError ? (ERROR_COLORS[result.error] ?? '#FF6B35') : null
+  const isYellowError = hasError && result.error in ERROR_COLORS
+ 
+
   let glowClass = 'node-idle'
-  if (isSelected)       glowClass = 'node-selected'
-  else if (hasError)    glowClass = 'node-error error-pulse-anim'
-  else if (highParams)  glowClass = 'node-warning'
-  else if (isCLIMode)   glowClass = 'node-cli-verified'
-  if (rippling)         glowClass += ' shape-ripple'
+  if (isSelected)            glowClass = 'node-selected'
+  else if (isYellowError)    glowClass = 'node-idle'   
+  else if (hasError)         glowClass = 'node-error error-pulse-anim'
+  else if (highParams)       glowClass = 'node-warning'
+  else if (isCLIMode)        glowClass = 'node-cli-verified'
+  if (rippling)              glowClass += ' shape-ripple'
+
+  
+  const errorGlowStyle = isYellowError ? {
+    boxShadow: `0 0 0 1px ${errorColor}CC, 0 0 28px ${errorColor}55, 0 0 55px ${errorColor}20`,
+    borderColor: `${errorColor}CC`,
+  } : {}
 
   const renderConfigChips = () => {
     switch (layerType) {
@@ -261,9 +277,10 @@ export default function LayerNode({ id, data }) {
         opacity: booted ? 1 : 0,
         cursor: 'pointer',
         minWidth: 220,
-        borderLeftColor: hasError ? '#FF6B35' : accentColor,
+        borderLeftColor: hasError ? errorColor : accentColor,
         borderLeftWidth: 2,
-        transition: 'border-color 0.3s ease',
+        transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+        ...errorGlowStyle,
       }}
       onClick={() => isSelected ? deselectNode() : selectNode(id)}
     >
@@ -272,12 +289,12 @@ export default function LayerNode({ id, data }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
             width: 7, height: 7, borderRadius: '50%',
-            background: hasError ? '#FF6B35' : accentColor,
-            boxShadow: `0 0 6px ${hasError ? '#FF6B35' : accentColor}`,
+            background: hasError ? errorColor : accentColor,
+            boxShadow: `0 0 6px ${hasError ? errorColor : accentColor}`,
           }} />
           <span style={{
             fontFamily: 'Syne', fontWeight: 700, fontSize: 13,
-            color: hasError ? '#FF6B35' : '#fff',
+            color: hasError ? errorColor : '#fff',
             letterSpacing: '0.04em', transition: 'color 0.3s ease',
           }}>
             {layerType}
@@ -286,9 +303,9 @@ export default function LayerNode({ id, data }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{
             fontFamily: 'JetBrains Mono', fontSize: 9,
-            background: hasError ? 'rgba(255,107,53,0.12)' : `${accentColor}1A`,
-            border: `1px solid ${hasError ? 'rgba(255,107,53,0.3)' : `${accentColor}40`}`,
-            color: hasError ? '#FF6B35' : accentColor,
+            background: hasError ? `${errorColor}1F` : `${accentColor}1A`,
+            border: `1px solid ${hasError ? `${errorColor}4D` : `${accentColor}40`}`,
+            color: hasError ? errorColor : accentColor,
             padding: '1px 7px', borderRadius: 4, letterSpacing: '0.06em',
           }}>
             {badge}
@@ -309,7 +326,7 @@ export default function LayerNode({ id, data }) {
             </span>
           )}
           {hasError
-            ? <AlertTriangle size={12} color="#FF6B35" />
+            ? <AlertTriangle size={12} color={errorColor} />
             : outputShape
               ? <CheckCircle2 size={12} color={isCLIMode ? '#a855f7' : '#39FF14'} strokeWidth={2.5} />
               : null
@@ -331,7 +348,7 @@ export default function LayerNode({ id, data }) {
           <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em' }}>IN</span>
           <span className={shapeFliping ? 'shape-flip' : ''} style={{
             fontFamily: 'JetBrains Mono', fontSize: 10,
-            color: hasError ? 'rgba(255,107,53,0.7)' : 'rgba(0,229,255,0.7)',
+            color: hasError ? `${errorColor}B3` : 'rgba(0,229,255,0.7)',
             letterSpacing: '0.02em',
           }}>
             {inputShape ? formatShape(inputShape, format) : '—'}
@@ -341,7 +358,7 @@ export default function LayerNode({ id, data }) {
           <span style={{ fontFamily: 'Syne', fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em' }}>OUT</span>
           <span className={shapeFliping ? 'shape-flip' : ''} style={{
             fontFamily: 'JetBrains Mono', fontSize: 10,
-            color: hasError ? '#FF6B35' : '#39FF14',
+            color: hasError ? errorColor : '#39FF14',
             letterSpacing: '0.02em', fontWeight: 500,
           }}>
             {outputShape ? formatShape(outputShape, format) : '???'}
@@ -370,10 +387,10 @@ export default function LayerNode({ id, data }) {
       {hasError && result?.message && (
         <div style={{
           margin: '0 10px 10px', padding: '6px 10px',
-          background: 'rgba(255,107,53,0.08)',
-          border: '1px solid rgba(255,107,53,0.25)',
+          background: `${errorColor}14`,
+          border: `1px solid ${errorColor}40`,
           borderRadius: 6,
-          fontFamily: 'JetBrains Mono', fontSize: 9, color: '#FF6B35', lineHeight: 1.5,
+          fontFamily: 'JetBrains Mono', fontSize: 9, color: errorColor, lineHeight: 1.5,
         }}>
           {result.message}
         </div>
