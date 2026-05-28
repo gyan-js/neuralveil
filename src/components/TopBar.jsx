@@ -210,9 +210,6 @@ function FormatToggle() {
   )
 }
 
-// ─── PRESETS DROPDOWN ─────────────────────────────────────────────────────────
-// Uses a React portal so the dropdown renders into document.body,
-// fully escaping any parent overflow:hidden or stacking context.
 
 function PresetsDropdown() {
   const loadFromJSON = useGraphStore(s => s.loadFromJSON)
@@ -398,12 +395,12 @@ function ExportModal({ onClose, nodes, edges, inputShape }) {
       <div className="export-modal" onClick={e => e.stopPropagation()}>
         <div style={{ padding: '14px 20px 0', borderBottom: '1px solid rgba(0,229,255,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+           {/*} <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Code2 size={14} color="#00E5FF" />
               <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 13, color: '#fff', letterSpacing: '0.06em' }}>
                 EXPORT CODE
               </span>
-            </div>
+            </div>*/}
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <button className="nv-btn" onClick={handleCopy} style={{ minWidth: 160, justifyContent: 'center' }}>
                 {phaseLabels[copyPhase]}
@@ -499,112 +496,11 @@ function ImportCodeButton() {
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
 
-// ─── EXECUTION BADGE ──────────────────────────────────────────────────────────
-
-function ExecutionBadge() {
-  const executionMode    = useGraphStore(s => s.executionMode)
-  const parseConfidence  = useGraphStore(s => s.parseConfidence)
-  const showCLIBanner    = useGraphStore(s => s.showCLIBanner)
-  const dismissCLIBanner = useGraphStore(s => s.dismissCLIBanner)
-
-  const isStatic  = executionMode === 'static'
-  const isCLI     = executionMode === 'cli'
-  const isPending = executionMode === 'pending'
-
-  const label = isCLI     ? 'CLI VERIFIED'
-              : isPending ? 'PENDING...'
-              : 'STATIC PARSE'
-
-  const color = isCLI     ? '#7C3AED'
-              : isPending ? '#D29922'
-              : 'rgba(255,255,255,0.2)'
-
-  const glowColor = isCLI ? 'rgba(124,58,237,0.35)' : isPending ? 'rgba(210,153,34,0.25)' : 'transparent'
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 5,
-        padding: '3px 8px',
-        border: `1px solid ${color}`,
-        borderRadius: 4,
-        background: isCLI ? 'rgba(124,58,237,0.08)' : 'transparent',
-        boxShadow: isCLI ? `0 0 8px ${glowColor}` : 'none',
-        transition: 'all 0.2s ease',
-      }}>
-        {/* dot indicator */}
-        <div style={{
-          width: 5, height: 5, borderRadius: '50%',
-          background: color,
-          boxShadow: isCLI ? `0 0 6px ${glowColor}` : 'none',
-          animation: isPending ? 'pulse 1s ease-in-out infinite' : 'none',
-        }} />
-        <span style={{
-          fontFamily: 'JetBrains Mono, monospace',
-          fontSize: 7.5, fontWeight: 700,
-          letterSpacing: '0.14em',
-          color,
-        }}>
-          {label}
-        </span>
-        {/* confidence bar for static parse */}
-        {isStatic && parseConfidence !== null && (
-          <div style={{
-            width: 28, height: 3, borderRadius: 2,
-            background: 'rgba(255,255,255,0.08)',
-            overflow: 'hidden', marginLeft: 2,
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${Math.round(parseConfidence * 100)}%`,
-              background: parseConfidence >= 0.6 ? '#39FF14' : '#FF6B35',
-              borderRadius: 2,
-              transition: 'width 0.3s ease',
-            }} />
-          </div>
-        )}
-      </div>
-
-     
-      {showCLIBanner && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '3px 8px',
-          background: 'rgba(255,107,53,0.08)',
-          border: '1px solid rgba(255,107,53,0.3)',
-          borderRadius: 4,
-        }}>
-          <span style={{
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: 7, fontWeight: 700, letterSpacing: '0.1em',
-            color: '#FF6B35',
-          }}>
-            COMPLEX MODEL — RUN CLI FOR ACCURATE GRAPH
-          </span>
-          <button
-            onClick={dismissCLIBanner}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'rgba(255,107,53,0.5)', fontSize: 12, lineHeight: 1,
-              padding: 0,
-            }}
-          >×</button>
-        </div>
-      )}
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-      `}</style>
-    </div>
-  )
-}
+import ExecutionBadge from './ExecutionBadge.jsx'
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
 
-export default function TopBar() {
+export default function TopBar({ onOpenExecutionPanel }) {
   const nodes = useGraphStore(s => s.nodes)
   const edges = useGraphStore(s => s.edges)
   const inputShape = useGraphStore(s => s.inputShape)
@@ -852,16 +748,16 @@ export default function TopBar() {
           <div className="nv-group">
             <span className="nv-section-tag">// code</span>
             <ImportCodeButton />
-            <button className="nv-btn" onClick={() => setShowExport(true)}>
+            {/*<button className="nv-btn" onClick={() => setShowExport(true)}>
               <Code2 size={11} />
               <span>EXPORT CODE</span>
-            </button>
+      </button>*/}
           </div>
 
           <div className="nv-divider" />
 
           {/* ── Execution Badge ── */}
-          <ExecutionBadge />
+          <ExecutionBadge onOpenPanel={onOpenExecutionPanel} />
 
           <div className="nv-divider" />
 
