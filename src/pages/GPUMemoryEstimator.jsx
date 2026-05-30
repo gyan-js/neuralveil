@@ -14,12 +14,12 @@ import CodegenPanel from '../components/gpumemoryestimator/CodegenPanel.jsx'
 import ExportPanel from '../components/gpumemoryestimator/ExportPanel.jsx'
 import QuantCompare from '../components/gpumemoryestimator/QuantCompare.jsx'
 import DistributedPanel from '../components/gpumemoryestimator/DistributedPanel.jsx'
-
+import { Link } from 'react-router'
 import useMemoryStore from '../store/useMemoryStore.js'
 import { deserializeFromURL } from '../utils/urlShare.js'
 import gpt2 from '../presets/gpt2_small.json'
 import '../styles/gpu.css'
-
+import logoword from '../assets/logoword.png'
 // ─── Collapsible Panel ────────────────────────────────────────────────────────
 function CollapsePanel({ id, label, icon, accent = 'var(--nf-accent)', defaultOpen = true, badge, children }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -109,14 +109,48 @@ export const GPUMemoryEstimator = () => {
     <div className="scanlines" style={{ minHeight: '100vh', background: 'var(--nf-bg)' }}>
 
       <header className="app-header">
+        {/* Animated scan line */}
+        <div className="header-scanline" />
+
+        {/* Left: Logo + Title */}
         <div className="app-logo">
-          <span className="logo-neural">Neural</span>
-          <span className="logo-forge">veil</span>
-          <span className="logo-sep"> // </span>
-          <span className="logo-title">GPU Memory Estimator</span>
+          <Link to="/" > <img className='h-10' src={logoword} /></Link>
+          <div className="logo-divider" />
+          <div className="logo-title-block">
+            <span className="logo-title">GPU Memory Estimator</span>
+            <span className="logo-subtitle">Neural Architecture VRAM Analyzer</span>
+          </div>
         </div>
+
+        {/* Center: System status pills */}
+        <div className="header-status-row">
+          <div className="status-pill">
+            <span className="status-dot status-dot--green" />
+            <span className="status-label">COMPUTE</span>
+            <span className="status-value">READY</span>
+          </div>
+          <div className="status-pill">
+            <span className="status-dot status-dot--blue" />
+            <span className="status-label">ENGINE</span>
+            <span className="status-value">ACTIVE</span>
+          </div>
+          <div className="status-pill">
+            <span className="status-dot status-dot--amber" />
+            <span className="status-label">MODE</span>
+            <span className="status-value">LIVE</span>
+          </div>
+        </div>
+
+        {/* Right: Version + build info */}
         <div className="app-header-right">
-          <div className="app-badge">v4.0</div>
+          <div className="header-meta">
+            <span className="header-build">BUILD 2025.1</span>
+            <span className="header-hash">REF#A3F9</span>
+          </div>
+          <div className="app-badge">
+            <span className="badge-ver-label">VER</span>
+            <span className="badge-ver-num">3.0.1</span>
+          </div>
         </div>
       </header>
 
@@ -270,36 +304,218 @@ export const GPUMemoryEstimator = () => {
         .app-header {
           background: var(--nf-surface);
           border-bottom: 1px solid var(--nf-border2);
-          padding: 13px 20px;
+          padding: 0 20px;
+          height: 56px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           position: sticky;
           top: 0;
           z-index: 100;
+          overflow: hidden;
+          gap: 16px;
         }
+
+        /* Animated top-edge accent bar */
+        .app-header::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 2px;
+          background: linear-gradient(90deg,
+            transparent 0%,
+            var(--nf-accent) 20%,
+            #5bc8f5 50%,
+            #a78bfa 80%,
+            transparent 100%
+          );
+          background-size: 200% 100%;
+          animation: headerBeam 4s linear infinite;
+        }
+
+        /* Bottom grid-line accent */
+        .app-header::after {
+          content: '';
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 1px;
+          background: linear-gradient(90deg,
+            transparent,
+            var(--nf-border2) 15%,
+            var(--nf-accent) 50%,
+            var(--nf-border2) 85%,
+            transparent
+          );
+          opacity: 0.6;
+        }
+
+        @keyframes headerBeam {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        /* Scanline sweep overlay */
+        .header-scanline {
+          position: absolute;
+          top: 0; bottom: 0;
+          width: 80px;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.025), transparent);
+          animation: scanSweep 6s ease-in-out infinite;
+          pointer-events: none;
+        }
+        @keyframes scanSweep {
+          0%   { left: -80px; }
+          100% { left: calc(100% + 80px); }
+        }
+
+        /* ── Logo block ── */
         .app-logo {
           display: flex;
-          align-items: baseline;
-          gap: 0;
-          font-family: 'Syne', sans-serif;
-          font-size: 14px;
-          font-weight: 800;
+          align-items: center;
+          gap: 14px;
+          flex-shrink: 0;
+        }
+        .logo-divider {
+          width: 1px;
+          height: 28px;
+          background: linear-gradient(to bottom, transparent, var(--nf-accent), transparent);
+          opacity: 0.5;
+        }
+        .logo-title-block {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .logo-title {
+          font-family: 'Space Mono', monospace;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--nf-text);
+          line-height: 1;
+        }
+        .logo-subtitle {
+          font-family: 'Space Mono', monospace;
+          font-size: 8px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--nf-muted);
+          opacity: 0.55;
+          line-height: 1;
+        }
+
+        /* ── Center status pills ── */
+        .header-status-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex: 1;
+          justify-content: center;
+        }
+        .status-pill {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px 4px 8px;
+          border: 1px solid var(--nf-border2);
+          border-radius: 2px;
+          background: rgba(255,255,255,0.02);
+          transition: border-color 0.2s, background 0.2s;
+        }
+        .status-pill:hover {
+          background: rgba(255,255,255,0.05);
+          border-color: var(--nf-accent);
+        }
+        .status-dot {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .status-dot--green  { background: #00e5a0; box-shadow: 0 0 6px #00e5a0; animation: cpPulse2g 2.5s ease-in-out infinite; }
+        .status-dot--blue   { background: #5bc8f5; box-shadow: 0 0 6px #5bc8f5; animation: cpPulse2b 2.5s ease-in-out 0.8s infinite; }
+        .status-dot--amber  { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; animation: cpPulse2a 2.5s ease-in-out 1.6s infinite; }
+        @keyframes cpPulse2g { 0%,100%{opacity:.7;box-shadow:0 0 4px #00e5a0;} 50%{opacity:1;box-shadow:0 0 10px #00e5a0;} }
+        @keyframes cpPulse2b { 0%,100%{opacity:.7;box-shadow:0 0 4px #5bc8f5;} 50%{opacity:1;box-shadow:0 0 10px #5bc8f5;} }
+        @keyframes cpPulse2a { 0%,100%{opacity:.7;box-shadow:0 0 4px #f59e0b;} 50%{opacity:1;box-shadow:0 0 10px #f59e0b;} }
+        .status-label {
+          font-family: 'Space Mono', monospace;
+          font-size: 7px;
           letter-spacing: 0.12em;
           text-transform: uppercase;
+          color: var(--nf-muted);
+          opacity: 0.6;
         }
-        .logo-neural { color: var(--nf-accent); }
-        .logo-forge  { color: var(--nf-text); }
-        .logo-sep    { color: var(--nf-muted); font-weight: 400; margin: 0 4px; }
-        .logo-title  { color: var(--nf-muted); font-weight: 400; font-size: 12px; letter-spacing: 0.08em; }
-        .app-badge {
-          font-size: 9px;
-          letter-spacing: 0.15em;
-          color: var(--nf-accent);
-          border: 1px solid var(--nf-accent);
-          padding: 3px 10px;
-          border-radius: 2px;
+        .status-value {
+          font-family: 'Space Mono', monospace;
+          font-size: 8px;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
+          color: var(--nf-accent);
+          font-weight: 700;
+        }
+
+        /* ── Right meta + badge ── */
+        .app-header-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-shrink: 0;
+        }
+        .header-meta {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 2px;
+        }
+        .header-build {
+          font-family: 'Space Mono', monospace;
+          font-size: 8px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--nf-muted);
+          opacity: 0.5;
+        }
+        .header-hash {
+          font-family: 'Space Mono', monospace;
+          font-size: 7px;
+          letter-spacing: 0.1em;
+          color: var(--nf-accent);
+          opacity: 0.4;
+        }
+        .app-badge {
+          display: flex;
+          align-items: baseline;
+          gap: 4px;
+          border: 1px solid var(--nf-accent);
+          padding: 4px 10px;
+          border-radius: 2px;
+          background: rgba(var(--nf-accent-rgb, 50,102,173), 0.07);
+          position: relative;
+          overflow: hidden;
+        }
+        .app-badge::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+        }
+        .badge-ver-label {
+          font-family: 'Space Mono', monospace;
+          font-size: 7px;
+          letter-spacing: 0.15em;
+          color: var(--nf-muted);
+          opacity: 0.7;
+          text-transform: uppercase;
+        }
+        .badge-ver-num {
+          font-family: 'Space Mono', monospace;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          color: var(--nf-accent);
+          line-height: 1;
         }
 
         /* ── Layout ── */
