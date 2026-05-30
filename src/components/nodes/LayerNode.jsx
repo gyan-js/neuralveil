@@ -29,13 +29,21 @@ function ParamChip({ label, value }) {
 
 export default function LayerNode({ id, data }) {
   const { layerType, config, bootDelay = 0, cliVerified = false } = data
-  const shapeResults  = useGraphStore(s => s.shapeResults)
-  const format        = useGraphStore(s => s.format)
-  const executionMode = useGraphStore(s => s.executionMode)
-  const selectedNodeId = useGraphStore(s => s.selectedNodeId)
-  const selectNode    = useGraphStore(s => s.selectNode)
-  const deselectNode  = useGraphStore(s => s.deselectNode)
-  const rippleNodes   = useGraphStore(s => s.rippleNodes)
+  const shapeResults      = useGraphStore(s => s.shapeResults)
+  const format            = useGraphStore(s => s.format)
+  const executionMode     = useGraphStore(s => s.executionMode)
+  const selectedNodeId    = useGraphStore(s => s.selectedNodeId)
+  const selectNode        = useGraphStore(s => s.selectNode)
+  const deselectNode      = useGraphStore(s => s.deselectNode)
+  const rippleNodes       = useGraphStore(s => s.rippleNodes)
+  const diffMode          = useGraphStore(s => s.diffMode)
+  const diffNodeStateMap  = useGraphStore(s => s.diffNodeStateMap)
+
+
+  const nodeDS       = diffMode ? (diffNodeStateMap.get(id) ?? null) : null
+  const diffState    = nodeDS?.state ?? null          // 'unchanged'|'modified'|'added'|'deleted'|null
+  const diffChanges  = nodeDS?.changes ?? []
+  const [showChangelog, setShowChangelog] = useState(false)
   const [booted, setBooted]       = useState(false)
   const [rippling, setRippling]   = useState(false)
   const prevFormat = useRef(format)
@@ -86,12 +94,16 @@ export default function LayerNode({ id, data }) {
  
 
   let glowClass = 'node-idle'
-  if (isSelected)            glowClass = 'node-selected'
-  else if (isYellowError)    glowClass = 'node-idle'   
-  else if (hasError)         glowClass = 'node-error error-pulse-anim'
-  else if (highParams)       glowClass = 'node-warning'
-  else if (isCLIMode)        glowClass = 'node-cli-verified'
-  if (rippling)              glowClass += ' shape-ripple'
+  if (diffState === 'deleted')   glowClass = 'node-diff-deleted'
+  else if (diffState === 'added')     glowClass = 'node-diff-added node-boot'
+  else if (diffState === 'modified')  glowClass = 'node-diff-modified'
+  else if (diffState === 'unchanged') glowClass = 'node-diff-unchanged'
+  else if (isSelected)            glowClass = 'node-selected'
+  else if (isYellowError)         glowClass = 'node-idle'
+  else if (hasError)              glowClass = 'node-error error-pulse-anim'
+  else if (highParams)            glowClass = 'node-warning'
+  else if (isCLIMode)             glowClass = 'node-cli-verified'
+  if (rippling && !diffState)     glowClass += ' shape-ripple'
 
   
   const errorGlowStyle = isYellowError ? {
@@ -274,12 +286,21 @@ export default function LayerNode({ id, data }) {
       className={`layer-node-card node-boot ${glowClass}`}
       style={{
         animationDelay: booted ? '0ms' : `${bootDelay * 80}ms`,
-        opacity: booted ? 1 : 0,
+        opacity: diffState === 'unchanged' ? 0.3
+               : diffState === 'deleted'   ? 0.6
+               : booted ? 1 : 0,
         cursor: 'pointer',
         minWidth: 220,
-        borderLeftColor: hasError ? errorColor : accentColor,
+        borderLeftColor: diffState === 'deleted'  ? '#FF6B35'
+                       : diffState === 'added'    ? '#00E5FF'
+                       : diffState === 'modified' ? '#F59E0B'
+                       : hasError ? errorColor : accentColor,
         borderLeftWidth: 2,
-        transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+        transition: 'border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease',
+        ...(diffState === 'deleted' ? {
+          borderColor: '#FF6B35',
+          boxShadow: '0 0 0 1px rgba(255,107,53,0.4)',
+        } : {}),
         ...errorGlowStyle,
       }}
       onClick={() => isSelected ? deselectNode() : selectNode(id)}
@@ -294,8 +315,13 @@ export default function LayerNode({ id, data }) {
           }} />
           <span style={{
             fontFamily: 'Syne', fontWeight: 700, fontSize: 13,
-            color: hasError ? errorColor : '#fff',
+            color: diffState === 'deleted'  ? '#FF6B35'
+                 : diffState === 'added'    ? '#00E5FF'
+                 : diffState === 'modified' ? '#F59E0B'
+                 : hasError ? errorColor : '#fff',
             letterSpacing: '0.04em', transition: 'color 0.3s ease',
+            textDecoration: diffState === 'deleted' ? 'line-through' : 'none',
+            opacity: diffState === 'deleted' ? 0.7 : 1,
           }}>
             {layerType}
           </span>
@@ -325,14 +351,93 @@ export default function LayerNode({ id, data }) {
               CLI ✓
             </span>
           )}
-          {hasError
+
+          {diffState === 'added' && (
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 8,
+              background: 'rgba(0,229,255,0.15)', border: '1px solid rgba(0,229,255,0.4)',
+              color: '#00E5FF', padding: '1px 6px', borderRadius: 4, letterSpacing: '0.06em',
+            }}>
+              + ADDED
+            </span>
+          )}
+          {diffState === 'deleted' && (
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 8,
+              background: 'rgba(255,107,53,0.15)', border: '1px solid rgba(255,107,53,0.4)',
+              color: '#FF6B35', padding: '1px 6px', borderRadius: 4, letterSpacing: '0.06em',
+              textDecoration: 'line-through',
+            }}>
+              − DEL
+            </span>
+          )}
+          {diffState === 'modified' && (
+            <span
+              title="Click to see changed params"
+              onClick={(e) => { e.stopPropagation(); setShowChangelog(v => !v) }}
+              style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 8,
+                background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)',
+                color: '#F59E0B', padding: '1px 6px', borderRadius: 4, letterSpacing: '0.06em',
+                cursor: 'pointer',
+              }}
+            >
+              ~ MOD
+            </span>
+          )}
+          {!diffState && (hasError
             ? <AlertTriangle size={12} color={errorColor} />
             : outputShape
               ? <CheckCircle2 size={12} color={isCLIMode ? '#a855f7' : '#39FF14'} strokeWidth={2.5} />
               : null
-          }
+          )}
         </div>
       </div>
+
+      {diffState === 'modified' && showChangelog && diffChanges.length > 0 && (
+        <div style={{
+          margin: '0 10px 8px',
+          padding: '7px 10px',
+          background: 'rgba(245,158,11,0.07)',
+          border: '1px solid rgba(245,158,11,0.25)',
+          borderRadius: 6,
+        }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 8,
+            color: 'rgba(245,158,11,0.6)', letterSpacing: '0.1em',
+            marginBottom: 5, textTransform: 'uppercase',
+          }}>
+            changed params
+          </div>
+          {diffChanges.map((c, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              marginBottom: i < diffChanges.length - 1 ? 4 : 0,
+            }}>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                color: '#F59E0B', minWidth: 60,
+              }}>
+                {c.param}
+              </span>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                color: 'rgba(255,107,53,0.8)',
+                textDecoration: 'line-through',
+              }}>
+                {JSON.stringify(c.from)}
+              </span>
+              <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9 }}>→</span>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                color: '#00E5FF',
+              }}>
+                {JSON.stringify(c.to)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="layer-node-divider" />
 
