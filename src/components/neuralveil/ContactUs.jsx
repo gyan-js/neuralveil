@@ -477,9 +477,9 @@ export default function ContactUs() {
           {/* Meta links */}
           <div style={{ ...anim(0.45), display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
             {[
-              { label: '// docs.neuralveil.dev', href: '#' },
-              { label: '// github/neuralveil',   href: '#' },
-              { label: '// @neuralveil',          href: '#' },
+              //{ label: '// docs.neuralveil.dev', href: '#' },
+              { label: '// github/gyan-js',   href: 'https://github.com/gyan-js' },
+              { label: '// developer@neuralveil.dev',          href: 'mailto:developer@neuralveil.dev' },
             ].map(({ label, href }) => (
               <a
                 key={label} href={href}
