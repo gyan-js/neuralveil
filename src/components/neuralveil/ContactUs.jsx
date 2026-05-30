@@ -647,7 +647,7 @@ export default function ContactUs() {
                           border: `1px solid ${active ? 'rgba(232,101,10,0.6)' : 'rgba(138,117,96,0.2)'}`,
                           borderRadius: '2px',
                           backgroundColor: active ? 'rgba(232,101,10,0.1)' : 'transparent',
-                          color: active ? 'var(--ember)' : 'rgba(138,117,96,0.5)',
+                          color: active ? 'var(--ember)' : 'rgba(255,255,255,0.5)',
                           cursor: 'pointer', transition: 'all 0.15s ease',
                         }}
                         onMouseEnter={(e) => {
