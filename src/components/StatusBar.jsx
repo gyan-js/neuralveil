@@ -31,9 +31,9 @@ export default function StatusBar() {
     }}>
       {/* Left: params */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
-        <StatItem label="TOTAL PARAMS" value={formatParams(totalParams)} color="rgba(255,255,255,0.5)" />
+        <StatItem label="TOTAL PARAMS" value={formatParams(totalParams)} color="rgba(255,255,255,0.7)" />
         <Divider />
-        <StatItem label="TRAINABLE" value={formatParams(totalParams)} color="rgba(255,255,255,0.5)" />
+        <StatItem label="TRAINABLE" value={formatParams(totalParams)} color="rgba(255,255,255,0.7)" />
       </div>
 
       {/* Center: errors */}
@@ -48,9 +48,9 @@ export default function StatusBar() {
 
       {/* Right: meta */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, justifyContent: 'flex-end' }}>
-        <StatItem label="FORMAT" value={format} color="#00E5FF" />
+        <StatItem label="FORMAT" value={format} color="rgba(255,255,255,0.7)" />
         <Divider />
-        <StatItem label="LAYERS" value={layerCount} color="rgba(255,255,255,0.5)" />
+        <StatItem label="LAYERS" value={layerCount} color="rgba(255,255,255,0.7)" />
         <Divider />
         <StatItem label="STATUS" value={hasErrors ? 'ERRORS DETECTED' : 'ALL VALID'} color={hasErrors ? '#FF6B35' : '#39FF14'} />
       </div>
@@ -67,7 +67,7 @@ function StatItem({ label, value, color, pulse }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{
         fontFamily: 'Syne', fontSize: 8.5, letterSpacing: '0.12em',
-        color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase',
+        color: 'rgba(0,229,255,0.75)', textTransform: 'uppercase',
       }}>
         {label}:
       </span>
