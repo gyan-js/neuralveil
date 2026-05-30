@@ -302,3 +302,71 @@ input[type=number]::-webkit-inner-spin-button { opacity: 0.3; }
   0% { color: var(--success); }
   100% { color: var(--cyan); }
 }
+
+
+.node-diff-unchanged {
+  opacity: 0.3 !important;
+  transition: opacity 0.3s ease, box-shadow 0.3s ease !important;
+}
+.node-diff-unchanged:hover {
+  opacity: 0.55 !important;
+}
+
+
+@keyframes amberPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(245,158,11,0.5),
+                0 0 16px rgba(245,158,11,0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(245,158,11,0.9),
+                0 0 32px rgba(245,158,11,0.4),
+                0 0 60px rgba(245,158,11,0.15);
+  }
+}
+
+.node-diff-modified {
+  border-color: rgba(245,158,11,0.8) !important;
+  animation: amberPulse 2s ease-in-out infinite !important;
+}
+
+
+@keyframes nodeBootIn {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.96); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.node-diff-added {
+  border-color: rgba(0,229,255,0.8) !important;
+  box-shadow:
+    0 0 0 1px rgba(0,229,255,0.5),
+    0 0 24px rgba(0,229,255,0.3),
+    0 0 48px rgba(0,229,255,0.1) !important;
+  animation: nodeBootIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+}
+
+
+.node-diff-deleted {
+  border-color: rgba(255,107,53,0.7) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,107,53,0.4),
+    0 0 16px rgba(255,107,53,0.15) !important;
+  opacity: 0.6 !important;
+  pointer-events: none !important;
+}
+
+
+@keyframes edgeFlowAdded {
+  to { stroke-dashoffset: -24; }
+}
+
+.edge-flow-added {
+  animation: edgeFlowAdded 0.6s linear infinite !important;
+}
+
+
+.edge-deleted {
+  opacity: 0.65 !important;
+  stroke-dasharray: 4 3 !important;
+}
