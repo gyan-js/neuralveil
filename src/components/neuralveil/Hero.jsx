@@ -132,7 +132,9 @@ export default function Hero() {
   const typed = useTypewriter(heroTypewriterLines)
   const [visibleLines, setVisibleLines] = useState(0)
   const [mounted, setMounted] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => 
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  )
 
   // Two-step popup flow: 'picker' → 'legal' → null (closed)
   const [popupStep, setPopupStep]   = useState(null)   // null | 'picker' | 'legal'
