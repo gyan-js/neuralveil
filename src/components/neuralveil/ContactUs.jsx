@@ -481,7 +481,7 @@ export default function ContactUs() {
             >
               Questions about the runtime? Want early access?{' '}
               <span style={{ color: '#b8a890' }}>
-                We're a small team — your message goes directly to the engineers who built this.
+                Your message goes directly to the developer who built this.
               </span>{' '}
               No ticketing system, no black holes.
             </p>
