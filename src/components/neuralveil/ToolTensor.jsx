@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
 import DendriteField from '../../assets/svgs/DendriteField'
-
+import nvtsdimg1 from '../../assets/nvtsdimg1.png'
+import nvtsdimg2 from '../../assets/nvtsdimg2.png'
+import nvtsdimg3 from '../../assets/nvtsdimg3.png'
+import nvtsdimg4 from '../../assets/nvtsdimg4.png'
+import nvtsdimg5 from '../../assets/nvtsdimg5.png'
 const tensorErrorScenarios = [
   {
     id: 'shape-mismatch',
@@ -117,6 +121,11 @@ function MobileStyles() {
         .tool-tensor-inner {
           padding: 0 5vw !important;
         }
+      }
+
+      /* hide hover expand-hint on touch screens */
+      @media (hover: none) {
+        .preview-expand-hint { display: none !important; }
       }
     `}</style>
   )
@@ -369,9 +378,341 @@ function FeatureCards({ features, accentColor }) {
 }
 
 
-function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Label }) {
+// ── Shared modal styles injected once ─────────────────────────────────────────
+function ModalStyles() {
+  return (
+    <style>{`
+      @keyframes modalFadeIn  { from { opacity: 0 }              to { opacity: 1 } }
+      @keyframes modalSlideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+      @keyframes modalSlideUpMobile { from { opacity: 0; transform: translateY(40px) } to { opacity: 1; transform: translateY(0) } }
+
+      .modal-close-btn {
+        background: none;
+        border: 1px solid #2a1f15;
+        color: #d39a1f;
+        width: 36px; height: 36px;
+        min-width: 36px;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-family: monospace; font-size: 16px; line-height: 1;
+        transition: all 0.15s;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+      .modal-close-btn:hover  { background: rgba(211,154,31,0.12); border-color: #d39a1f; }
+      .modal-close-btn:active { background: rgba(211,154,31,0.22); }
+
+      /* Image modal grid: multi-col on desktop, single-col on mobile */
+      .img-modal-grid-2 { grid-template-columns: 1fr 1fr !important; }
+      .img-modal-grid-3 { grid-template-columns: 1fr 1fr 1fr !important; }
+
+      @media (max-width: 640px) {
+        .img-modal-grid-2,
+        .img-modal-grid-3 { grid-template-columns: 1fr !important; }
+
+        .modal-inner {
+          /* full-width bottom-sheet on mobile */
+          position: fixed !important;
+          bottom: 0 !important; left: 0 !important; right: 0 !important;
+          top: auto !important;
+          max-width: 100% !important;
+          width: 100% !important;
+          border-radius: 0 !important;
+          border-left: none !important; border-right: none !important; border-bottom: none !important;
+          border-top: 2px solid #d39a1f !important;
+          max-height: 88vh !important;
+          animation: modalSlideUpMobile 0.28s cubic-bezier(0.32,0.72,0,1) !important;
+        }
+
+        .modal-overlay {
+          align-items: flex-end !important;
+          padding: 0 !important;
+        }
+
+        .modal-images-scroll {
+          padding: 14px !important;
+          max-height: calc(88vh - 52px) !important;
+        }
+
+        .modal-img-max { max-height: 55vw !important; }
+      }
+    `}</style>
+  )
+}
+
+// ── Shared modal header strip ──────────────────────────────────────────────────
+function ModalHeader({ title, pulseDot, onClose }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '10px 14px',
+      borderBottom: '1px solid #1f150a',
+      background: '#0d0905',
+      flexShrink: 0,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+        <span style={{
+          width: 7, height: 7, borderRadius: '50%', background: '#d39a1f',
+          display: 'inline-block', flexShrink: 0,
+          ...(pulseDot ? { animation: 'pulse 1.2s ease-in-out infinite' } : { opacity: 0.8 }),
+        }} />
+        <span style={{
+          fontFamily: 'monospace', fontSize: '10px', color: '#d39a1f',
+          letterSpacing: '0.12em', overflow: 'scroll', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {title}
+        </span>
+      </div>
+      <button className="modal-close-btn" onClick={onClose}>✕</button>
+    </div>
+  )
+}
+
+// ── Modal overlay for image previews — carousel/slideshow ─────────────────────
+function ImageModal({ open, onClose, images, initialIndex = 0 }) {
+  const [current, setCurrent] = useState(initialIndex)
+
+  // sync when modal opens at a specific index
+  useEffect(() => {
+    if (open) setCurrent(initialIndex)
+  }, [open, initialIndex])
+
+  useEffect(() => {
+    if (!open) return
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowRight') setCurrent(c => (c + 1) % images.length)
+      if (e.key === 'ArrowLeft') setCurrent(c => (c - 1 + images.length) % images.length)
+    }
+    document.addEventListener('keydown', handleKey)
+    document.body.style.overflow = 'scroll'
+    return () => {
+      document.removeEventListener('keydown', handleKey)
+      document.body.style.overflow = ''
+    }
+  }, [open, onClose, images.length])
+
+  if (!open) return null
+
+  const img = images[current]
+  const hasPrev = images.length > 1
+  const hasNext = images.length > 1
+
+  return (
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(5, 3, 1, 0.95)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px',
+        animation: 'modalFadeIn 0.2s ease',
+      }}
+    >
+      <div
+        className="modal-inner"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#0a0704',
+          border: '1px solid #d39a1f',
+          maxWidth: '960px',
+          width: '100%',
+          maxHeight: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          animation: 'modalSlideUp 0.25s ease',
+          boxShadow: '0 0 60px rgba(211,154,31,0.15), 0 0 140px rgba(211,154,31,0.06)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* corner accents */}
+        <div style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, borderLeft: '12px solid #d39a1f', borderBottom: '12px solid transparent', zIndex: 3, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 0, height: 0, borderRight: '12px solid #d39a1f', borderTop: '12px solid transparent', zIndex: 3, pointerEvents: 'none' }} />
+
+        {/* Header with slide counter */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 14px',
+          borderBottom: '1px solid #1f150a',
+          background: '#0d0905',
+          flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d39a1f', opacity: 0.8, display: 'inline-block', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#d39a1f', letterSpacing: '0.12em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {img.label || '// preview'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {images.length > 1 && (
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#4a3d30', letterSpacing: '0.1em' }}>
+                {String(current + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
+              </span>
+            )}
+            <button className="modal-close-btn" onClick={onClose}>✕</button>
+          </div>
+        </div>
+
+        {/* Image area with nav arrows */}
+        <div style={{ position: 'relative', flex: 1, overflow: 'hidden', background: '#080503', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
+          {/* top accent line */}
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, #d39a1f, transparent)', zIndex: 1 }} />
+
+          {/* Prev arrow */}
+          {hasPrev && (
+            <button
+              onClick={() => setCurrent(c => (c - 1 + images.length) % images.length)}
+              style={{
+                position: 'absolute', left: '12px', zIndex: 5,
+                background: 'rgba(13,9,5,0.85)', border: '1px solid #2a1f15',
+                color: '#d39a1f', width: '40px', height: '40px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', fontFamily: 'monospace', fontSize: '18px',
+                transition: 'all 0.15s', lineHeight: 1,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#d39a1f'; e.currentTarget.style.background = 'rgba(211,154,31,0.12)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a1f15'; e.currentTarget.style.background = 'rgba(13,9,5,0.85)' }}
+            >
+              ‹
+            </button>
+          )}
+
+          {/* Image */}
+          {img.src ? (
+            <img
+              key={current}
+              src={img.src}
+              alt={img.label}
+              style={{
+                maxWidth: '100%', maxHeight: '75vh',
+                objectFit: 'contain', display: 'block',
+                animation: 'modalFadeIn 0.18s ease',
+              }}
+            />
+          ) : (
+            <div style={{
+              width: '100%', minHeight: '320px', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              color: '#4a3d30', fontFamily: 'monospace', fontSize: '11px', gap: '8px',
+            }}>
+              <span style={{ fontSize: '24px', opacity: 0.3 }}>◈</span>
+              <span>[ DEVELOPMENT IN PROGRESS ]</span>
+            </div>
+          )}
+
+          {/* Next arrow */}
+          {hasNext && (
+            <button
+              onClick={() => setCurrent(c => (c + 1) % images.length)}
+              style={{
+                position: 'absolute', right: '12px', zIndex: 5,
+                background: 'rgba(13,9,5,0.85)', border: '1px solid #2a1f15',
+                color: '#d39a1f', width: '40px', height: '40px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', fontFamily: 'monospace', fontSize: '18px',
+                transition: 'all 0.15s', lineHeight: 1,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#d39a1f'; e.currentTarget.style.background = 'rgba(211,154,31,0.12)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a1f15'; e.currentTarget.style.background = 'rgba(13,9,5,0.85)' }}
+            >
+              ›
+            </button>
+          )}
+        </div>
+
+        {/* Dot indicators */}
+        {images.length > 1 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: '6px', padding: '10px 14px',
+            borderTop: '1px solid #1f150a', background: '#0d0905', flexShrink: 0,
+          }}>
+            {images.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrent(i)}
+                style={{
+                  width: i === current ? '20px' : '6px',
+                  height: '6px',
+                  background: i === current ? '#d39a1f' : '#2a1f15',
+                  border: 'none', cursor: 'pointer',
+                  padding: 0, transition: 'all 0.2s ease',
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Clickable preview thumbnail ────────────────────────────────────────────────
+function PreviewThumb({ children, onClick, borderColor = '#2a1f15', accentDir = 'top' }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        border: `1px solid ${hovered ? '#d39a1f' : borderColor}`,
+        background: '#0d0905',
+        overflow: 'hidden',
+        position: 'relative',
+        cursor: 'pointer',
+        transition: 'border-color 0.2s, box-shadow 0.2s',
+        boxShadow: hovered ? '0 0 18px rgba(211,154,31,0.12)' : 'none',
+      }}
+    >
+      {accentDir === 'top' && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, #d39a1f, transparent)`, zIndex: 1 }} />
+      )}
+      {accentDir === 'right' && (
+        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '2px', background: `linear-gradient(180deg, #d39a1f, transparent)`, zIndex: 1 }} />
+      )}
+      {/* zoom hint on hover */}
+      {hovered && (
+        <div className="preview-expand-hint" style={{
+          position: 'absolute', inset: 0, zIndex: 3,
+          background: 'rgba(10,7,4,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'opacity 0.2s',
+        }}>
+          <div style={{
+            border: '1px solid #d39a1f',
+            padding: '6px 14px',
+            fontFamily: 'monospace', fontSize: '10px', color: '#d39a1f',
+            letterSpacing: '0.15em', background: 'rgba(13,9,5,0.85)',
+          }}>
+            [ EXPAND ]
+          </div>
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
+
+function PreviewSection({ img1Src, img2Src, img3Src, img4Src, img5Src, img1Label, img2Label, img3Label, img4Label, img5Label }) {
+  const [carouselOpen, setCarouselOpen] = useState(false)
+  const [carouselIndex, setCarouselIndex] = useState(0)
+  const [activeImages, setActiveImages] = useState([])
+
+  const openCarousel = (images, index = 0) => {
+    setActiveImages(images)
+    setCarouselIndex(index)
+    setCarouselOpen(true)
+  }
+
   return (
     <div style={{ marginTop: '80px' }}>
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
+      <ModalStyles />
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
         <div style={{ width: '32px', height: '1px', background: '#2a1f15' }} />
         <p style={{ fontFamily: 'monospace', fontSize: '11px', color: '#4a3d30', letterSpacing: '0.12em', margin: 0 }}>
@@ -380,130 +721,53 @@ function PreviewSection({ gifSrc, img1Src, img2Src, gifLabel, img1Label, img2Lab
         <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, #2a1f15, transparent)' }} />
       </div>
 
-      <div className="tool-tensor-preview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.6fr', gap: '12px', alignItems: 'stretch' }}>
+      <div className="tool-tensor-preview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'stretch' }}>
+
+        {/* Image 1 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{
-            border: '1px solid #2a1f15',
-            background: '#0d0905',
-            overflow: 'hidden',
-            position: 'relative',
-            aspectRatio: '4/3',
-          }}>
-            <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0,
-              height: '2px', background: 'linear-gradient(90deg, #d39a1f, transparent)',
-            }} />
-            {img1Src ? (
-              <img src={img1Src} alt={img1Label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{
-                width: '100%', height: '100%', display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                color: '#C5C5C7', fontFamily: 'monospace', fontSize: '11px',
-              }}>[ DEVELOPMENT IN PROGRESS ]</div>
-            )}
-          </div>
+          <PreviewThumb onClick={() => openCarousel([{ src: img1Src, label: img1Label }, {src: img2Src, label: img2Label}], 0)} accentDir="top">
+            <div style={{ aspectRatio: '4/3' }}>
+              {img1Src ? (
+                <img src={img1Src} alt={img1Label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C5C5C7', fontFamily: 'monospace', fontSize: '11px' }}>
+                  [ DEVELOPMENT IN PROGRESS ]
+                </div>
+              )}
+            </div>
+          </PreviewThumb>
           <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#3a2d20', letterSpacing: '0.08em' }}>
             {img1Label}
           </span>
         </div>
 
-  
+        {/* Image 2 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{
-            border: '1px solid #2a1f15',
-            background: '#0d0905',
-            overflow: 'hidden',
-            position: 'relative',
-            aspectRatio: '4/3',
-          }}>
-            <div style={{
-              position: 'absolute', top: 0, right: 0, bottom: 0,
-              width: '2px', background: 'linear-gradient(180deg, #d39a1f, transparent)',
-            }} />
-            {img2Src ? (
-              <img src={img2Src} alt={img2Label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{
-                width: '100%', height: '100%', display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                color: '#C5C5C7', fontFamily: 'monospace', fontSize: '11px',
-              }}>[ DEVELOPMENT IN PROGRESS ]</div>
-            )}
-          </div>
+          <PreviewThumb onClick={() => openCarousel([{ src: img3Src, label: img3Label }, { src: img4Src, label: img4Label }, { src: img5Src, label: img5Label }], 0)} accentDir="right">
+            <div style={{ aspectRatio: '4/3' }}>
+              {img2Src ? (
+                <img src={img2Src} alt={img2Label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C5C5C7', fontFamily: 'monospace', fontSize: '11px' }}>
+                  [ DEVELOPMENT IN PROGRESS ]
+                </div>
+              )}
+            </div>
+          </PreviewThumb>
           <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#3a2d20', letterSpacing: '0.08em' }}>
             {img2Label}
           </span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{
-            border: '1px solid #d39a1f',
-            background: '#0d0905',
-            overflow: 'hidden',
-            position: 'relative',
-            flex: 1,
-            minHeight: '200px',
-          }}>
-          
-            <div style={{
-              position: 'absolute', top: 0, left: 0,
-              width: 0, height: 0,
-              borderLeft: '12px solid #d39a1f',
-              borderBottom: '12px solid transparent',
-              zIndex: 2,
-            }} />
-            <div style={{
-              position: 'absolute', bottom: 0, right: 0,
-              width: 0, height: 0,
-              borderRight: '12px solid #d39a1f',
-              borderTop: '12px solid transparent',
-              zIndex: 2,
-            }} />
-    
-            <div style={{
-              position: 'absolute', top: '10px', right: '10px', zIndex: 3,
-              display: 'flex', alignItems: 'center', gap: '5px',
-              background: 'rgba(15,11,7,0.85)',
-              border: '1px solid #d39a1f',
-              padding: '3px 8px',
-              fontFamily: 'monospace', fontSize: '9px', color: '#d39a1f',
-              letterSpacing: '0.1em',
-            }}>
-              <span style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: '#d39a1f',
-                animation: 'pulse 1.2s ease-in-out infinite',
-              }} />
-              LIVE
-            </div>
-            {gifSrc ? (
-              <img
-                src={gifSrc}
-                alt={gifLabel}
-                loop
-                autoPlay
-                muted
-                playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              />
-            ) : (
-              <div style={{
-                width: '100%', height: '100%', minHeight: '200px',
-                display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                color: '#C5C5C7', fontFamily: 'monospace', fontSize: '11px', gap: '8px',
-              }}>
-                <span style={{ fontSize: '24px', opacity: 0.3 }}>▶</span>
-                <span>[ DEVELOPMENT IN PROGRESS ]</span>
-              </div>
-            )}
-            <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
-          </div>
-          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#3a2d20', letterSpacing: '0.08em' }}>
-            {gifLabel}
-          </span>
-        </div>
+
       </div>
+
+      {/* Single carousel modal for all images */}
+      <ImageModal
+        open={carouselOpen}
+        onClose={() => setCarouselOpen(false)}
+        images={activeImages}
+        initialIndex={carouselIndex}
+      />
     </div>
   )
 }
@@ -637,12 +901,16 @@ export default function ToolTensor() {
           transition: 'all 0.8s ease 0.6s',
         }}>
           <PreviewSection
-            gifSrc={null}
-            img1Src={null}
-            img2Src={null}
-            gifLabel="// shape-flow live trace"
+            img1Src={nvtsdimg1}
+            img2Src={nvtsdimg2}
+            img3Src={nvtsdimg3}
+            img4Src={nvtsdimg4}
+            img5Src={nvtsdimg5}
             img1Label="// mismatch annotation"
             img2Label="// dimension graph"
+            img3Label="// dimension graph"
+            img4Label="// dimension graph"
+            img5Label="// dimension graph"
           />
         </div>
       </div>
