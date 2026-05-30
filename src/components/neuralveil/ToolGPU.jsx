@@ -682,7 +682,7 @@ function PreviewSection({ img1Src, img2Src,img3Src, img4Src, img5Src, img6Src, i
               )}
             </div>
           </PreviewThumb>
-          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#3a2d20', letterSpacing: '0.08em' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(225, 225, 225, 0.6)', letterSpacing: '0.08em' }}>
             {img1Label}
           </span>
         </div>
@@ -692,7 +692,7 @@ function PreviewSection({ img1Src, img2Src,img3Src, img4Src, img5Src, img6Src, i
           <PreviewThumb onClick={() => openCarousel([{ src: img4Src, label: img4Label }], 0)} accentDir="bottom-right">
             <div style={{ aspectRatio: '4/3' }}>
               {img4Src ? (
-                <img src={img2Src} alt={img2Label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                <img src={img4Src} alt={img2Label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C5C5C7', fontFamily: 'monospace', fontSize: '11px' }}>
                   [ DEVELOPMENT IN PROGRESS ]
@@ -700,8 +700,8 @@ function PreviewSection({ img1Src, img2Src,img3Src, img4Src, img5Src, img6Src, i
               )}
             </div>
           </PreviewThumb>
-          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#3a2d20', letterSpacing: '0.08em' }}>
-            {img2Label}
+          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(225, 225, 225, 0.6)', letterSpacing: '0.08em' }}>
+            {img4Label}
           </span>
         </div>
       </div>
@@ -851,8 +851,10 @@ export default function ToolGPU() {
             img3Src={nvgmvimg3}
             img4Src={nvgmvimg4}
             //img5Src={nvgmvimg5}
-            img1Label="// batch size simulation"
-            img2Label="// oom prediction overlay"
+            img1Label="// layer breakdown in inference"
+            img2Label="// layer breakdown in training"
+            img3Label="// memory consumption at different phase"
+            img4Label="// cloud gpu cost estimation"
           />
         </div>
       </div>

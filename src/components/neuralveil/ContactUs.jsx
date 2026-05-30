@@ -170,6 +170,16 @@ ${message}
 
 
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < breakpoint)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [breakpoint])
+  return isMobile
+}
+
 function useIntersectionObserver({ threshold = 0.15 } = {}) {
   const ref = useRef(null)
   const [hasIntersected, setHasIntersected] = useState(false)
@@ -201,7 +211,7 @@ function InputField({ label, id, type = 'text', value, onChange, placeholder, re
           fontFamily: 'JetBrains Mono, monospace',
           fontSize: '10px',
           letterSpacing: '0.18em',
-          color: focused ? 'var(--ember)' : 'rgba(138, 117, 96, 0.6)',
+          color: focused ? 'var(--ember)' : 'rgba(225, 225, 225, 0.6)',
           textTransform: 'uppercase',
           transition: 'color 0.2s ease',
         }}
@@ -245,7 +255,7 @@ function TextAreaField({ label, id, value, onChange, placeholder, required }) {
           fontFamily: 'JetBrains Mono, monospace',
           fontSize: '10px',
           letterSpacing: '0.18em',
-          color: focused ? 'var(--ember)' : 'rgba(138, 117, 96, 0.6)',
+          color: focused ? 'var(--ember)' : 'rgba(225, 225, 225, 0.6)',
           textTransform: 'uppercase',
           transition: 'color 0.2s ease',
         }}
@@ -284,6 +294,7 @@ function TextAreaField({ label, id, value, onChange, placeholder, required }) {
 
 export default function ContactUs() {
   const { ref, hasIntersected } = useIntersectionObserver({ threshold: 0.1 })
+  const isMobile = useIsMobile()
 
 
   const [formData, setFormData] = useState({
@@ -361,7 +372,7 @@ export default function ContactUs() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '100px 8vw 80px',
+        padding: isMobile ? '80px 20px 60px' : '100px 8vw 80px',
         background: `
           radial-gradient(ellipse 50% 70% at 80% 30%, rgba(232, 101, 10, 0.07) 0%, transparent 60%),
           radial-gradient(ellipse 40% 50% at 10% 80%, rgba(232, 101, 10, 0.04) 0%, transparent 55%),
@@ -414,8 +425,10 @@ export default function ContactUs() {
         style={{
           position: 'relative', zIndex: 2,
           width: '100%', maxWidth: '1100px',
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: '80px', alignItems: 'start',
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+          gap: isMobile ? '40px' : '80px',
+          alignItems: 'start',
         }}
       >
         {/* ── LEFT COLUMN ── */}
@@ -445,7 +458,7 @@ export default function ContactUs() {
           <div style={anim(0.1)}>
             <h2
               className="font-bebas"
-              style={{ fontSize: 'clamp(52px, 6.5vw, 96px)', lineHeight: '0.91', letterSpacing: '0.02em', margin: 0 }}
+              style={{ fontSize: isMobile ? 'clamp(48px, 14vw, 72px)' : 'clamp(52px, 6.5vw, 96px)', lineHeight: '0.91', letterSpacing: '0.02em', margin: 0 }}
             >
               <span style={{ color: '#ede8e0', display: 'block' }}>REACH</span>
               <span
@@ -482,14 +495,14 @@ export default function ContactUs() {
               { label: '// developer@neuralveil.dev',          href: 'mailto:developer@neuralveil.dev' },
             ].map(({ label, href }) => (
               <a
-                key={label} href={href}
+                key={label} href={href} 
                 style={{
                   fontFamily: 'JetBrains Mono, monospace', fontSize: '11px',
-                  color: 'rgba(138, 117, 96, 0.5)', letterSpacing: '0.06em',
-                  textDecoration: 'none', transition: 'color 0.2s ease',
+                  color: 'rgba(138, 117, 96, 0.9)', letterSpacing: '0.06em',
+                  textDecoration: 'underline', transition: 'color 0.2s ease', 
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ember)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(138, 117, 96, 0.5)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(138, 117, 96, 0.9)')}
               >
                 {label}
               </a>
@@ -507,7 +520,7 @@ export default function ContactUs() {
                 border: '1px solid rgba(232, 101, 10, 0.3)',
                 borderRadius: '4px',
                 backgroundColor: 'rgba(10, 7, 4, 0.7)',
-                padding: '48px', textAlign: 'center',
+                padding: isMobile ? '36px 24px' : '48px', textAlign: 'center',
                 position: 'relative', overflow: 'hidden',
               }}
             >
@@ -621,7 +634,7 @@ export default function ContactUs() {
                 display: 'flex', flexDirection: 'column', gap: '24px',
                 backgroundColor: 'rgba(10, 7, 4, 0.6)',
                 border: '1px solid rgba(138, 117, 96, 0.12)',
-                borderRadius: '4px', padding: '36px',
+                borderRadius: '4px', padding: isMobile ? '24px 20px' : '36px',
                 backdropFilter: 'blur(8px)',
               }}
             >
@@ -629,7 +642,7 @@ export default function ContactUs() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div
                   className="font-mono-jb"
-                  style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'rgba(138, 117, 96, 0.6)', textTransform: 'uppercase' }}
+                  style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'rgba(225, 225, 225, 0.6)', textTransform: 'uppercase' }}
                 >
                   Reason
                 </div>
@@ -674,7 +687,7 @@ export default function ContactUs() {
           
               <div style={{ height: '1px', background: 'linear-gradient(to right, rgba(232,101,10,0.15), transparent)' }} />
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
                 <InputField
                   label="Name" id="name" value={name}
                   onChange={(e) => setForm({ name: e.target.value })}
@@ -708,8 +721,8 @@ export default function ContactUs() {
               )}
 
               {/* Submit */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                <span className="font-mono-jb" style={{ fontSize: '10px', color: 'rgba(138,117,96,0.35)', letterSpacing: '0.06em' }}>
+              <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: '12px' }}>
+                <span className="font-mono-jb" style={{ fontSize: '10px', color: 'rgba(225,225,225,0.5)', letterSpacing: '0.06em' }}>
                   no tracking. no crm. just us.
                 </span>
                 <button
@@ -725,8 +738,9 @@ export default function ContactUs() {
                     borderRadius: '2px',
                     opacity: !formReady ? 0.45 : 1,
                     transition: 'all 0.2s ease',
-                    display: 'flex', alignItems: 'center', gap: '8px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                     boxShadow: formReady ? '0 0 20px rgba(232, 101, 10, 0.3)' : 'none',
+                    width: isMobile ? '100%' : 'auto',
                   }}
                   onMouseEnter={(e) => {
                     if (formReady && status !== 'sending') {
