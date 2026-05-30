@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-
+import logo from '../../assets/logo.png'
+import logoword from '../../assets/logowordspace.png'
 const ribbonTerms = [
   'FSDP', '∿ FORWARD PASS', 'TENSOR PARALLEL', '∇ GRAD NORM',
   'BF16', 'ACTIVATION CHECKPOINTING', 'DDP', '⊗ SHAPE TRACE',
@@ -133,14 +134,11 @@ function MobileSidebar({ open, onClose, tick }) {
           padding: '20px 28px 20px',
           borderBottom: '1px solid rgba(232,101,10,0.1)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex' }}>
        
             
-            <span className="font-bebas" style={{
-              fontSize: '16px', letterSpacing: '0.22em', color: 'var(--flame,#ff6b1a)',
-            }}>
-              NEURALVEIL
-            </span>
+          <img  className='h-[29px] '  src={logo} />
+            <img  style={{marginLeft: '-20px'}} className='h-8 ' src={logoword} />
           </div>
 
      
@@ -199,10 +197,10 @@ function MobileSidebar({ open, onClose, tick }) {
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span className="font-mono-jb" style={{ fontSize: '8px', color: 'rgba(232,101,10,0.4)', letterSpacing: '0.12em', minWidth: '16px' }}>
+                <span className="font-mono-jb" style={{ fontSize: '8px', color: 'rgba(232,101,10,0.7)', letterSpacing: '0.12em', minWidth: '16px' }}>
                   {link.tag}
                 </span>
-                <span className="font-mono-jb" style={{ fontSize: '13px', color: 'rgba(200,184,154,0.8)', letterSpacing: '0.1em' }}>
+                <span className="font-mono-jb" style={{ fontSize: '13px', color: 'rgba(225,225,225,0.7)', letterSpacing: '0.1em' }}>
                   {link.label.toUpperCase()}
                 </span>
               </div>
@@ -212,7 +210,7 @@ function MobileSidebar({ open, onClose, tick }) {
         </nav>
 
         <div style={{ padding: '24px 28px', borderTop: '1px solid rgba(232,101,10,0.1)' }}>
-          <a href='#launch'>
+          <a href='#contact'>
           <button
             className="font-mono-jb"
             style={{
@@ -231,12 +229,12 @@ function MobileSidebar({ open, onClose, tick }) {
             onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--flame,#ff6b1a)'}
             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--ember,#e8650a)'}
           >
-            TOOLKIT LAUNCH
+            CONTACT DEVELOPER
           </button>
           </a>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-            <span className="font-mono-jb" style={{ fontSize: '9px', color: 'rgba(232,101,10,0.4)', border: '1px solid rgba(232,101,10,0.15)', padding: '2px 7px', borderRadius: '2px', letterSpacing: '0.14em' }}>
+            <span className="font-mono-jb" style={{ fontSize: '9px', color: 'rgba(255,215,0,0.7)', border: '1px solid rgba(232,101,10,0.15)', padding: '2px 7px', borderRadius: '2px', letterSpacing: '0.14em' }}>
               V3.0.1
             </span>
             <span className="font-mono-jb" style={{ fontSize: '9px', color: 'rgba(138,117,96,0.4)', letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums' }}>
@@ -371,19 +369,9 @@ export default function Navbar() {
           </div>
             */}
      
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-            <span className="font-bebas" style={{
-              fontSize: '20px', letterSpacing: '0.22em',
-              color: 'var(--flame,#ff6b1a)', lineHeight: 1,
-            }}>
-              NEURALVEIL
-            </span>
-            <span className="font-mono-jb nav-subtitle" style={{
-              fontSize: '8px', letterSpacing: '0.18em',
-              color: 'rgba(232,101,10,0.4)', marginTop: '1px',
-            }}>
-              ML INTROSPECTION TOOLKIT
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'row', lineHeight: 1, paddingTop: "35px", paddingBottom: '30px' }}>
+            <img  className='h-12 '  src={logo} />
+            <img style={{marginLeft: '-20px'}} className='h-[42px] ' src={logoword} />
           </div>
         </div>
 
@@ -396,7 +384,7 @@ export default function Navbar() {
         }}>
           <span className="font-mono-jb" style={{
             fontSize: '9px', letterSpacing: '0.14em',
-            color: 'rgba(232,101,10,0.5)',
+            color: 'rgba(255,215,0,0.7)',
             border: '1px solid rgba(232,101,10,0.2)',
             padding: '2px 8px', borderRadius: '2px',
           }}>
@@ -470,7 +458,7 @@ export default function Navbar() {
               </span>
               <span className="font-mono-jb" style={{
                 fontSize: '12px', letterSpacing: '0.1em',
-                color: activeLink === i ? 'var(--ember,#e8650a)' : 'rgba(138,120,100,0.8)',
+                color: activeLink === i ? 'var(--ember,#e8650a)' : 'rgba(225,225,225,0.7)',
                 transition: 'color 0.2s ease',
                 fontWeight: activeLink === i ? '600' : '400',
               }}>
@@ -489,7 +477,7 @@ export default function Navbar() {
         }}>
           <span className="font-mono-jb" style={{
             fontSize: '10px',
-            color: 'rgba(138,117,96,0.45)',
+            color: 'rgba(138,117,96,0.8)',
             letterSpacing: '0.08em',
             fontVariantNumeric: 'tabular-nums',
           }}>
@@ -504,7 +492,7 @@ export default function Navbar() {
           borderLeft: '1px solid rgba(138,117,96,0.1)',
           flexShrink: 0,
         }}>
-          <a href='#launch'>
+          <a href='#contact'>
           <button
             className="font-mono-jb"
             style={{
@@ -518,7 +506,7 @@ export default function Navbar() {
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--flame,#ff6b1a)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--ember,#e8650a)'; e.currentTarget.style.transform = 'translateY(0)' }}
           >
-            TOOLKIT LAUNCH
+            CONTACT DEVELOPER
           </button>
           </a>
         </div>
