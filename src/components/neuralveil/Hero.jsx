@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router'
 import NeuralGraph from '../../assets/svgs/NeuralGraph'
+import ToolPicker from './ToolPicker'
+import LegalGateway from './LegalGateway'
 
 const heroTypewriterLines = [
   'nv.trace(model, input_shape=(32, 3, 224, 224))',
@@ -130,6 +133,40 @@ export default function Hero() {
   const [visibleLines, setVisibleLines] = useState(0)
   const [mounted, setMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+
+  // Two-step popup flow: 'picker' → 'legal' → null (closed)
+  const [popupStep, setPopupStep]   = useState(null)   // null | 'picker' | 'legal'
+  const [chosenTool, setChosenTool] = useState(null)   // null | 'shape' | 'vram'
+  const navigate = useNavigate()
+
+  function openPicker() {
+    // Reset legal flags whenever the flow starts fresh
+    localStorage.setItem('isTermOfUseAccepted',     'false')
+    localStorage.setItem('isPrivacyPolicyAccepted', 'false')
+    setChosenTool(null)
+    setPopupStep('picker')
+  }
+
+  function handleToolSelect(toolId) {
+    // Reset flags again before legal step
+    localStorage.setItem('isTermOfUseAccepted',     'false')
+    localStorage.setItem('isPrivacyPolicyAccepted', 'false')
+    setChosenTool(toolId)
+    setPopupStep('legal')
+  }
+
+  function handleLegalClose() {
+    localStorage.setItem('isTermOfUseAccepted',     'false')
+    localStorage.setItem('isPrivacyPolicyAccepted', 'false')
+    setPopupStep(null)
+    setChosenTool(null)
+  }
+
+  function handleLegalAccept(route) {
+    setPopupStep(null)
+    setChosenTool(null)
+    navigate(route)
+  }
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -278,9 +315,9 @@ export default function Hero() {
           <div style={{
             opacity: 0, animation: 'fade-up 0.7s ease 1.1s forwards',
           }}>
-            <a href='#launch' >
             <button
               className="font-mono-jb animate-cta-pulse"
+              onClick={openPicker}
               style={{
                 backgroundColor: 'var(--ember, #e8650a)', color: 'var(--void, #0a0705)',
                 border: 'none', padding: '14px 32px', fontSize: '12px',
@@ -293,7 +330,6 @@ export default function Hero() {
             >
               ENTER THE FORGE
             </button>
-            </a>
           </div>
         </div>
 
@@ -303,6 +339,18 @@ export default function Hero() {
           background: 'linear-gradient(to bottom, transparent, var(--void,#0a0705))',
           pointerEvents: 'none',
         }} />
+
+        {/* ── Two-step popup flow ── */}
+        {popupStep === 'picker' && (
+          <ToolPicker onSelect={handleToolSelect} onClose={handleLegalClose} />
+        )}
+        {popupStep === 'legal' && chosenTool && (
+          <LegalGateway
+            tool={chosenTool}
+            onClose={handleLegalClose}
+            onAccept={handleLegalAccept}
+          />
+        )}
       </section>
     )
   }
@@ -455,9 +503,9 @@ export default function Hero() {
           display: 'flex', gap: '14px', flexWrap: 'wrap',
           opacity: 0, animation: 'fade-up 0.7s ease 1.1s forwards', marginBottom: '20px'
         }}>
-          <a href='#launch' >
           <button
             className="font-mono-jb animate-cta-pulse"
+            onClick={openPicker}
             style={{
               backgroundColor: 'var(--ember, #e8650a)', color: 'var(--void, #0a0705)',
               border: 'none', padding: '14px 32px', fontSize: '12px',
@@ -469,7 +517,6 @@ export default function Hero() {
           >
             ENTER THE FORGE
           </button>
-          </a>
         </div>
       </div>
 
@@ -478,6 +525,18 @@ export default function Hero() {
         background: 'linear-gradient(to bottom, transparent, var(--void,#0a0705))',
         pointerEvents: 'none',
       }} />
+
+      {/* ── Two-step popup flow ── */}
+      {popupStep === 'picker' && (
+        <ToolPicker onSelect={handleToolSelect} onClose={handleLegalClose} />
+      )}
+      {popupStep === 'legal' && chosenTool && (
+        <LegalGateway
+          tool={chosenTool}
+          onClose={handleLegalClose}
+          onAccept={handleLegalAccept}
+        />
+      )}
     </section>
   )
 }
