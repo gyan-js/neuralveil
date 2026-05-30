@@ -18,7 +18,6 @@ export const Neuralveil = () => {
         <ToolTensor />
         <ToolGPU />
         <SectionDivider />
-        <LaunchPage />
         <ContactUs />
       </main>
       <Footer />
