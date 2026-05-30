@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import DendriteField from '../../assets/svgs/DendriteField'
 import ForgeCircuit from '../../assets/svgs/ForgeCircuit'
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
-import {Link} from 'react-router'
+import LegalGateway from './LegalGateway'
 const stats = [
   { num: '02', label: 'precision tools', sub: 'shape tracer + vram estimator' },
   { num: '0ms', label: 'serever latency', sub: 'no backend, runs entirely in your browser' },
@@ -358,6 +359,31 @@ export default function About() {
   const { ref, hasIntersected } = useIntersectionObserver({ threshold: 0.1 })
   const { ref: timelineRef, hasIntersected: timelineVisible } = useIntersectionObserver({ threshold: 0.15 })
 
+  // 'shape' | 'vram' | null  — null means the popup is closed
+  const [gatewayTool, setGatewayTool] = useState(null)
+  const navigate = useNavigate()
+
+  function openGateway(tool) {
+    // Reset localStorage flags whenever the popup is opened fresh
+    localStorage.setItem('isTermOfUseAccepted',     'false')
+    localStorage.setItem('isPrivacyPolicyAccepted', 'false')
+    setGatewayTool(tool)
+  }
+
+  function closeGateway() {
+    // Reset flags on dismiss too
+    localStorage.setItem('isTermOfUseAccepted',     'false')
+    localStorage.setItem('isPrivacyPolicyAccepted', 'false')
+    setGatewayTool(null)
+  }
+
+  function handleAccept(route) {
+    // Flags are already true (set by LegalGateway via checkbox toggles).
+    // Close the modal and navigate — ProtectedRoute will validate on mount.
+    setGatewayTool(null)
+    navigate(route)
+  }
+
   return (
     <section
       ref={ref}
@@ -588,8 +614,7 @@ export default function About() {
             flex: '1', minWidth: '160px', paddingLeft: '28px',
             display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px',
           }}>
-            <a href='#launch' >
-            <button className="font-mono-jb" style={{
+            <button className="font-mono-jb" onClick={() => openGateway('shape')} style={{
               backgroundColor: 'var(--ember,#e8650a)', color: 'var(--void,#0a0705)',
               border: 'none', padding: '12px 22px', fontSize: '11px',
               letterSpacing: '0.1em', fontWeight: '700', cursor: 'pointer',
@@ -600,9 +625,8 @@ export default function About() {
             >
               TRY SHAPE TRACER →
             </button>
-            </a>
-            <a href="#launch">
-            <button className="font-mono-jb" style={{
+
+            <button className="font-mono-jb" onClick={() => openGateway('vram')} style={{
               backgroundColor: 'transparent', color: 'var(--ember,#e8650a)',
               border: '1px solid rgba(232,101,10,0.35)', padding: '12px 22px',
               fontSize: '11px', letterSpacing: '0.1em', fontWeight: '500',
@@ -613,11 +637,20 @@ export default function About() {
             >
               ESTIMATE VRAM →
             </button>
-            </a>
           </div>
         </div>
 
       </div>
+
+      {/* Legal acceptance gateway popup */}
+      {gatewayTool && (
+        <LegalGateway
+          tool={gatewayTool}
+          onClose={closeGateway}
+          onAccept={handleAccept}
+        />
+      )}
+
     </section>
   )
 }
