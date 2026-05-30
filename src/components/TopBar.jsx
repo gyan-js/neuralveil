@@ -1,11 +1,13 @@
 import { useGraphStore } from '../store/useGraphStore.js'
 import { exportToPyTorch, exportToKeras, exportToJSON } from '../engine/exportEngine.js'
-import { Download, Save, Upload, Code2, Link, ChevronDown, Cpu, Layers, FileCode2 } from 'lucide-react'
+import { Download, Save, Upload, Code2, Link, ChevronDown, Cpu, Layers, FileCode2, GitBranch, ArrowRight, X as XIcon } from 'lucide-react'
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
+import SnapshotPanel from './SnapshotPanel.jsx'
 import '../styles/globals.css'
-
+import logo from '../assets/logowordspace.png'
+import logodiv from '../assets/logoword.png'
 // ─── PRESETS ──────────────────────────────────────────────────────────────────
 
 const PRESETS = [
@@ -469,27 +471,14 @@ function ImportCodeButton() {
 
   return (
     <button
-      className="nv-btn nv-btn--accent"
+      className="nv-btn "
       onClick={openCodeImport}
       title="Import graph from PyTorch or Keras code"
       style={{ position: 'relative' }}
     >
       <FileCode2 size={11} />
       <span>IMPORT CODE</span>
-      <span style={{
-        position: 'absolute',
-        top: -5, right: -5,
-        background: '#39FF14',
-        color: '#000',
-        fontFamily: 'JetBrains Mono, monospace',
-        fontSize: 6, fontWeight: 800,
-        letterSpacing: '0.1em',
-        padding: '1px 4px',
-        borderRadius: 2,
-        lineHeight: 1.5,
-      }}>
-        NEW
-      </span>
+     
     </button>
   )
 }
@@ -506,9 +495,18 @@ export default function TopBar({ onOpenExecutionPanel }) {
   const inputShape = useGraphStore(s => s.inputShape)
   const format = useGraphStore(s => s.format)
   const loadFromCLI = useGraphStore(s => s.loadFromCLI)
+  const diffMode    = useGraphStore(s => s.diffMode)
+  const diffBaseId  = useGraphStore(s => s.diffBaseId)
+  const diffTargetId = useGraphStore(s => s.diffTargetId)
+  const snapshots   = useGraphStore(s => s.snapshots)
+  const exitDiff    = useGraphStore(s => s.exitDiff)
   const [showExport, setShowExport] = useState(false)
+  const [showSnapshotPanel, setShowSnapshotPanel] = useState(false)
   const fileRef = useRef(null)
   const navigate = useNavigate()
+
+  const snapA = snapshots.find(s => s.id === diffBaseId)
+  const snapB = snapshots.find(s => s.id === diffTargetId)
 
   const handleLoadCLI = (e) => {
     const file = e.target.files?.[0]
@@ -616,9 +614,7 @@ export default function TopBar({ onOpenExecutionPanel }) {
         }
 
         .nv-logo-wordmark {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
+          padding-left: '-20px';
         }
 
         .nv-logo-name {
@@ -712,102 +708,202 @@ export default function TopBar({ onOpenExecutionPanel }) {
         }
       `}</style>
 
-      <div className="nv-topbar">
+      {/* ── Snapshot panel sidebar ── */}
+      {showSnapshotPanel && (
+        <div style={{
+          position: 'fixed',
+          top: 48, left: 0, bottom: 0,
+          zIndex: 500,
+          display: 'flex',
+        }}>
+          <SnapshotPanel onClose={() => setShowSnapshotPanel(false)} />
+        </div>
+      )}
+
+      <div className="nv-topbar" style={diffMode ? {
+        borderBottom: '1px solid rgba(0,229,255,0.3)',
+        boxShadow: '0 0 0 1px rgba(0,229,255,0.08)',
+      } : {}}>
         <div className="nv-topbar-bottom-border" />
 
         <div className="nv-topbar-content">
 
           {/* ── Logo ── */}
           <a className="nv-logo" onClick={() => navigate('/')}>
-        
             <div className="nv-logo-wordmark">
-              <div className="nv-logo-name">
-                <strong>NEURAL</strong>VEIL
-              </div>
-              <div className="nv-logo-version">V3.0.1-GAMMA // GRAPH EDITOR</div>
+              <img className='h-10' src={logodiv} />
             </div>
           </a>
 
           <div className="nv-divider" />
 
-          {/* ── Format Toggle ── */}
-          <FormatToggle />
+          {diffMode ? (
+            <>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '3px 12px',
+                background: 'rgba(0,229,255,0.06)',
+                border: '1px solid rgba(0,229,255,0.2)',
+                borderRadius: 6,
+              }}>
+                <GitBranch size={11} color="#00E5FF" />
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9, color: 'rgba(255,255,255,0.5)',
+                  letterSpacing: '0.1em',
+                }}>
+                  DIFF:
+                </span>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9, color: '#FF6B35', fontWeight: 700,
+                  background: 'rgba(255,107,53,0.12)',
+                  border: '1px solid rgba(255,107,53,0.25)',
+                  borderRadius: 3, padding: '1px 7px',
+                  maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {snapA?.name ?? 'Base'}
+                </span>
+                <ArrowRight size={10} color="rgba(255,255,255,0.25)" />
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9, color: '#00E5FF', fontWeight: 700,
+                  background: 'rgba(0,229,255,0.1)',
+                  border: '1px solid rgba(0,229,255,0.25)',
+                  borderRadius: 3, padding: '1px 7px',
+                  maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {snapB?.name ?? 'Target'}
+                </span>
+              </div>
 
-          {/* ── Spacer ── */}
-          <div style={{ flex: 1 }} />
+              <div style={{ flex: 1 }} />
 
-          {/* ── Presets ── */}
-          <div className="nv-group">
-            <span className="nv-section-tag">// arch</span>
-            <PresetsDropdown />
-          </div>
+              <button
+                onClick={exitDiff}
+                style={{
+                  background: 'rgba(255,107,53,0.1)',
+                  border: '1px solid rgba(255,107,53,0.3)',
+                  borderRadius: 5,
+                  color: '#FF6B35',
+                  cursor: 'pointer',
+                  padding: '4px 12px',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                }}
+              >
+                <XIcon size={10} />
+                EXIT DIFF
+              </button>
+            </>
+          ) : (
+            <>
 
-          <div className="nv-divider" />
+              <FormatToggle />
 
-          {/* ── Code actions ── */}
-          <div className="nv-group">
-            <span className="nv-section-tag">// code</span>
-            <ImportCodeButton />
-            {/*<button className="nv-btn" onClick={() => setShowExport(true)}>
-              <Code2 size={11} />
-              <span>EXPORT CODE</span>
-      </button>*/}
-          </div>
 
-          <div className="nv-divider" />
+              <div style={{ flex: 1 }} />
 
-          {/* ── Execution Badge ── */}
-          <ExecutionBadge onOpenPanel={onOpenExecutionPanel} />
+              <div className="nv-group">
+                <button
+                  className="nv-btn"
+                  onClick={() => setShowSnapshotPanel(v => !v)}
+                  style={showSnapshotPanel ? {
+                    background: 'rgba(0,229,255,0.1)',
+                    borderColor: 'rgba(0,229,255,0.4)',
+                    color: '#00E5FF',
+                  } : {}}
+                  title="Open version control / snapshot panel"
+                >
+                  <GitBranch size={11} />
+                  <span>SNAPSHOTS</span>
+                  {snapshots.length > 0 && (
+                    <span style={{
+                      background: 'rgba(0,229,255,0.2)',
+                      border: '1px solid rgba(0,229,255,0.3)',
+                      borderRadius: 3,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 8, color: '#00E5FF',
+                      padding: '0 4px', lineHeight: '14px',
+                      minWidth: 14, textAlign: 'center',
+                    }}>
+                      {snapshots.length}
+                    </span>
+                  )}
+                </button>
+              </div>
 
-          <div className="nv-divider" />
+              <div className="nv-divider" />
 
-          {/* ── IO ── */}
-          <div className="nv-group">
-            <span className="nv-section-tag">// io</span>
-            <CopyLinkButton />
-            <button className="nv-btn" onClick={() => {
-              const exportNodes = nodes.map(n => ({
-                id: n.id, type: n.data?.layerType,
-                position: n.position, config: n.data?.config || {},
-              }))
-              const json = JSON.stringify({
-                version: '1.0', format, inputShape,
-                nodes: exportNodes,
-                edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target })),
-              }, null, 2)
-              const blob = new Blob([json], { type: 'application/json' })
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url; a.download = 'model-graph.json'; a.click()
-              URL.revokeObjectURL(url)
-            }}>
-              <Save size={11} />
-              <span>SAVE JSON</span>
-            </button>
-            <button
-              className="nv-btn"
-              onClick={() => fileRef.current?.click()}
-              title="Load a neuralveil_output.json produced by the CLI"
-              style={{ borderColor: 'rgba(124,58,237,0.3)', color: 'rgba(124,58,237,0.8)' }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'rgba(124,58,237,0.08)'
-                e.currentTarget.style.borderColor = 'rgba(124,58,237,0.6)'
-                e.currentTarget.style.color = '#A78BFA'
-                e.currentTarget.style.boxShadow = '0 0 10px rgba(124,58,237,0.15)'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)'
-                e.currentTarget.style.color = 'rgba(124,58,237,0.8)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
-            >
-              <Upload size={11} />
-              <span>LOAD CLI JSON</span>
-            </button>
-          </div>
+              {/* ── Presets ── */}
+              <div className="nv-group">
 
-          <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoadCLI} />
+                <PresetsDropdown />
+              </div>
+
+              <div className="nv-divider" />
+
+              {/* ── Code actions ── */}
+              <div className="nv-group">
+                <ImportCodeButton />
+              </div>
+
+              <div className="nv-divider" />
+
+              {/* ── Execution Badge ── */}
+              <ExecutionBadge onOpenPanel={onOpenExecutionPanel} />
+
+              <div className="nv-divider" />
+
+              {/* ── IO ── */}
+              <div className="nv-group">
+                <CopyLinkButton />
+                <button className="nv-btn" onClick={() => {
+                  const exportNodes = nodes.map(n => ({
+                    id: n.id, type: n.data?.layerType,
+                    position: n.position, config: n.data?.config || {},
+                  }))
+                  const json = JSON.stringify({
+                    version: '1.0', format, inputShape,
+                    nodes: exportNodes,
+                    edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target })),
+                  }, null, 2)
+                  const blob = new Blob([json], { type: 'application/json' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = 'model-graph.json'; a.click()
+                  URL.revokeObjectURL(url)
+                }}>
+                  <Save size={11} />
+                  <span>SAVE JSON</span>
+                </button>
+                <button
+                  className="nv-btn"
+                  onClick={() => fileRef.current?.click()}
+                  title="Load a neuralveil_output.json produced by the CLI"
+                  style={{ borderColor: 'rgba(124,58,237,0.3)', color: '#A78BFA' }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(124,58,237,0.08)'
+                    e.currentTarget.style.borderColor = 'rgba(124,58,237,0.6)'
+                    e.currentTarget.style.color = '#A78BFA'
+                    e.currentTarget.style.boxShadow = '0 0 10px rgba(124,58,237,0.15)'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)'
+                    e.currentTarget.style.color = '#A78BFA'
+                    e.currentTarget.style.boxShadow = 'none'
+                  }}
+                >
+                  <Upload size={11} />
+                  <span>LOAD CLI JSON</span>
+                </button>
+              </div>
+
+              <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoadCLI} />
+            </>
+          )}
         </div>
       </div>
 
