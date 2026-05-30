@@ -8,8 +8,14 @@ export default function ShapeEdge({
   sourcePosition, targetPosition,
   source, target,
 }) {
-  const shapeResults = useGraphStore(s => s.shapeResults)
-  const format = useGraphStore(s => s.format)
+  const shapeResults    = useGraphStore(s => s.shapeResults)
+  const format          = useGraphStore(s => s.format)
+  const diffMode        = useGraphStore(s => s.diffMode)
+  const diffEdgeStateMap = useGraphStore(s => s.diffEdgeStateMap)
+
+
+  const edgeDiffState = diffMode ? (diffEdgeStateMap.get(id) ?? 'unchanged') : null
+
   const [animClass, setAnimClass] = useState('')
   const prevFormat = useRef(format)
 
@@ -33,8 +39,13 @@ export default function ShapeEdge({
     }
   }, [format])
 
-  const strokeColor = hasError ? '#FF6B35' : '#00E5FF'
-  const strokeOpacity = hasError ? 0.8 : 0.6
+
+  const strokeColor = edgeDiffState === 'added'   ? '#00E5FF'
+                    : edgeDiffState === 'deleted'  ? '#FF6B35'
+                    : hasError ? '#FF6B35' : '#00E5FF'
+  const strokeOpacity = edgeDiffState === 'deleted' ? 0.7
+                      : edgeDiffState === 'added'   ? 1.0
+                      : hasError ? 0.8 : 0.6
 
   return (
     <>
@@ -52,12 +63,31 @@ export default function ShapeEdge({
         d={edgePath}
         fill="none"
         stroke={strokeColor}
-        strokeWidth={1.5}
+        strokeWidth={edgeDiffState === 'added' ? 2 : 1.5}
         strokeOpacity={strokeOpacity}
-        strokeDasharray={hasError ? '5 3' : '8 4'}
-        className={hasError ? 'edge-error' : 'edge-flow'}
+        strokeDasharray={
+          edgeDiffState === 'deleted' ? '4 3'
+          : edgeDiffState === 'added' ? '10 3'
+          : hasError ? '5 3' : '8 4'
+        }
+        className={
+          edgeDiffState === 'added'   ? 'edge-flow'
+          : edgeDiffState === 'deleted' ? 'edge-error'
+          : hasError ? 'edge-error' : 'edge-flow'
+        }
         style={{ transition: 'stroke 0.3s ease' }}
       />
+
+
+      {edgeDiffState === 'added' && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke="#00E5FF"
+          strokeWidth={8}
+          strokeOpacity={0.12}
+        />
+      )}
 
       {/* Shape badge label */}
       <EdgeLabelRenderer>
@@ -70,23 +100,57 @@ export default function ShapeEdge({
             zIndex: 10,
           }}
         >
-          <div style={{
-            background: '#0D1526',
-            border: `1px solid ${hasError ? '#FF6B35' : '#00E5FF'}`,
-            borderRadius: '4px',
-            padding: '2px 8px',
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: '10px',
-            color: hasError ? '#FF6B35' : '#00E5FF',
-            letterSpacing: '0.02em',
-            whiteSpace: 'nowrap',
-            boxShadow: hasError
-              ? '0 0 8px rgba(255,107,53,0.3)'
-              : '0 0 8px rgba(0,229,255,0.2)',
-            opacity: hasError ? 0.9 : 1,
-          }}>
-            {edgeShape ? formatShape(edgeShape, format) : '???'}
-          </div>
+        
+          {edgeDiffState === 'deleted' ? (
+            <div style={{
+              background: '#0D1526',
+              border: '1px solid rgba(255,107,53,0.6)',
+              borderRadius: '4px',
+              padding: '2px 8px',
+              fontFamily: '"JetBrains Mono", monospace',
+              fontSize: '9px',
+              color: '#FF6B35',
+              letterSpacing: '0.06em',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 0 8px rgba(255,107,53,0.25)',
+              textDecoration: 'line-through',
+            }}>
+              REMOVED
+            </div>
+          ) : edgeDiffState === 'added' ? (
+            <div style={{
+              background: '#0D1526',
+              border: '1px solid rgba(0,229,255,0.6)',
+              borderRadius: '4px',
+              padding: '2px 8px',
+              fontFamily: '"JetBrains Mono", monospace',
+              fontSize: '9px',
+              color: '#00E5FF',
+              letterSpacing: '0.06em',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 0 12px rgba(0,229,255,0.3)',
+            }}>
+              + NEW EDGE
+            </div>
+          ) : (
+            <div style={{
+              background: '#0D1526',
+              border: `1px solid ${hasError ? '#FF6B35' : '#00E5FF'}`,
+              borderRadius: '4px',
+              padding: '2px 8px',
+              fontFamily: '"JetBrains Mono", monospace',
+              fontSize: '10px',
+              color: hasError ? '#FF6B35' : '#00E5FF',
+              letterSpacing: '0.02em',
+              whiteSpace: 'nowrap',
+              boxShadow: hasError
+                ? '0 0 8px rgba(255,107,53,0.3)'
+                : '0 0 8px rgba(0,229,255,0.2)',
+              opacity: hasError ? 0.9 : 1,
+            }}>
+              {edgeShape ? formatShape(edgeShape, format) : '???'}
+            </div>
+          )}
         </div>
       </EdgeLabelRenderer>
     </>
