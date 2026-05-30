@@ -369,9 +369,9 @@ export default function Navbar() {
           </div>
             */}
      
-          <div style={{ display: 'flex', flexDirection: 'row', lineHeight: 1, paddingTop: "35px", paddingBottom: '30px' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', lineHeight: 1, paddingTop: "35px", paddingBottom: '35px', alignItems: 'center' }}>
             <img  className='h-12 '  src={logo} />
-            <img style={{marginLeft: '-20px'}} className='h-[42px] ' src={logoword} />
+            <img style={{marginLeft: '-20px'}} className='h-[38px] ' src={logoword} />
           </div>
         </div>
 
