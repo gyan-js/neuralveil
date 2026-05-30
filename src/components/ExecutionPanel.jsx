@@ -274,7 +274,7 @@ export default function ExecutionPanel({ isOpen, onClose }) {
               fontFamily: 'Syne', fontSize: 13, fontWeight: 700,
               color: '#fff', letterSpacing: '0.04em',
             }}>
-              Execution Panel
+              Execution Panel (for PyTorch model code only)
             </span>
           </div>
           <button
@@ -384,18 +384,9 @@ export default function ExecutionPanel({ isOpen, onClose }) {
           }}>
             Then parse your model:
           </p>
-          <CodeBlock>{`neuralveil parse model.py \\
-  --input ${inputShapeStr}`}</CodeBlock>
+          <CodeBlock>{`neuralveil parse model.py --input ${inputShapeStr} --ouput yourfilename.json`}</CodeBlock>
 
-          <p style={{
-            fontFamily: 'JetBrains Mono', fontSize: 10,
-            color: 'rgba(255,255,255,0.4)', lineHeight: 1.7,
-            margin: '10px 0 6px',
-          }}>
-            Or use the Python API directly:
-          </p>
-          <CodeBlock>{`from neuralveil import parse_model
-graph = parse_model(MyModel, [${inputShapeStr}])`}</CodeBlock>
+         
 
           <Divider />
 
