@@ -659,7 +659,7 @@ export default function ContactUs() {
                         onMouseLeave={(e) => {
                           if (!active) {
                             e.currentTarget.style.borderColor = 'rgba(138,117,96,0.2)'
-                            e.currentTarget.style.color = 'rgba(138,117,96,0.5)'
+                            e.currentTarget.style.color = 'rgba(255,255,255,0.5)'
                           }
                         }}
                       >
