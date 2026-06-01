@@ -115,11 +115,7 @@ export const GPUMemoryEstimator = () => {
         {/* Left: Logo + Title */}
         <div className="app-logo">
           <Link to="/" > <img className='h-10' src={logoword} /></Link>
-          <div className="logo-divider" />
-          <div className="logo-title-block">
-            <span className="logo-title">GPU Memory Estimator</span>
-            <span className="logo-subtitle">Neural Architecture VRAM Analyzer</span>
-          </div>
+          
         </div>
 
         {/* Center: System status pills */}
