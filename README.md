@@ -1,84 +1,135 @@
-# 🧠 Tensor Shape Debugger
+<div align="center">
 
-![Status](https://img.shields.io/badge/status-V1%20stable%20·%20V2%20stable-8b5cf6?style=flat-square)
-![Stack](https://img.shields.io/badge/stack-React%2019%20·%20Zustand%20·%20React%20Flow-14b8a6?style=flat-square)
-![Framework](https://img.shields.io/badge/supports-PyTorch%20·%20TensorFlow-f97316?style=flat-square)
 
-> A visual, drag-and-drop neural network canvas that propagates tensor shapes
-> in real time — so you catch shape errors before you write a single line of
-> training code.
 
-**Built by Gyan · Class 12th**  
-React 19 · Zustand · React Flow · Tailwind CSS
+<img src="./src/assets/banner2.png">
 
-## The Problem
- 
-Shape errors are the #1 frustration in deep learning. You stack a few layers, hit run, and get:
- 
+
+
+**The open-source toolkit for ML engineers to visualize, diff, and memory-profile neural network architectures.**
+
+<br />
+
+[![PyPI version](https://img.shields.io/pypi/v/neuralveil?style=flat-square&labelColor=080C14&color=00E5FF)](https://pypi.org/project/neuralveil/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/neuralveil?style=flat-square&labelColor=080C14&color=39FF14)](https://pypi.org/project/neuralveil/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-FF6B35?style=flat-square&labelColor=080C14)](./LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8%2B-00E5FF?style=flat-square&labelColor=080C14)](https://pypi.org/project/neuralveil/)
+[![Stars](https://img.shields.io/github/stars/YOUR_USERNAME/neuralveil?style=flat-square&labelColor=080C14&color=39FF14)](https://github.com/YOUR_USERNAME/neuralveil/stargazers)
+
+[neuralveil.dev](https://neuralveil.dev) &nbsp;·&nbsp; [PyPI](https://pypi.org/project/neuralveil/) &nbsp;·&nbsp; [Issues](https://github.com/YOUR_USERNAME/neuralveil/issues)
+
+</div>
+
+---
+
+NeuralVeil captures your model's **actual runtime computation graph** — not a static approximation — and gives you an interactive canvas to explore it, diff it across versions, and estimate its GPU memory footprint before you run a single training job.
+
+No telemetry. No cloud. Your model never leaves your machine.
+
+---
+
+## Install
+
+```bash
+pip install neuralveil
 ```
-RuntimeError: Expected input channels 64, got 128
+
+## Usage
+
+```bash
+neuralveil parse model.py --input 1,3,225,225 --output model.json
 ```
- 
-No context. No visual. Just a crash after a 10-minute wait.
- 
-Tensor Shape Debugger solves this at the design stage — before training ever starts.
- 
+
+Upload `model.json` to [neuralveil.dev](https://neuralveil.dev).
+
 ---
- 
-## How It Works
- 
-Drop layers onto a canvas. Connect them. Every edge instantly shows the tensor shape flowing through it — like `[batch, 64, 112, 112]`. If something breaks (kernel too large, channel mismatch, wrong flatten), you see a plain-English error right there on the node. No runtime. No guessing.
- 
+
+## How it works
+
+The CLI traces your PyTorch model at runtime using `torch.fx` symbolic tracing, with a forward hook fallback for dynamic and non-traceable models. Every node in the graph carries the full operator metadata — shape, dtype, parameter count, memory footprint — serialized to a portable JSON schema.
+
+The frontend parses that JSON and renders it as an interactive graph using React Flow with ELK layout, which means skip connections, residual blocks, and multi-branch architectures all route correctly without overlap or manual intervention.
+
+> TensorFlow support is in active development.
+
 ---
- 
-## 🌱 Initial Build (V1.0.1)
- 
-### Core
-- **Drag-and-drop layer palette** — Conv2D, MaxPool, Dense, Flatten, BatchNorm, Dropout
-- **Live shape badges on every edge** — e.g. `[batch, 64, 112, 112]` updates as you tweak params
-- **Shape error detection** with human-readable messages — *"Kernel 5×5 too large for 3×3 feature map"*
-- **Configurable layer params** — kernel size, stride, padding, filters, units
-- **Input shape configurator** — image (`H × W × C`) or sequence (`L × D`)
-### What Sets It Apart
-- **NCHW ↔ NHWC toggle** — switch between PyTorch and TensorFlow dimension conventions
-- **Per-layer parameter count** + cumulative total displayed live
-- **One-click PyTorch export** — generates a ready-to-use model skeleton from your canvas
-- **Save / load architecture as JSON**
+
+## Tensor Shape Debugger
+
+```bash
+neuralveil parse resnet50.py --input 1,3,224,224 --output resnet50.json
+```
+
+- Captures the real execution graph, not inferred from `__init__`
+- Handles skip connections, residual blocks, reshape, permute
+- Symbolic batch dimension — not hardcoded to your dummy input
+- Full per-node metadata: shape, dtype, params, memory
+- Named snapshots and node-level architecture diffs across model versions
+- Undo / redo on the canvas (`Ctrl+Z` / `Ctrl+Y`)
+
 ---
- 
-## 🔭 Current Build (V2.0.3)
- 
-V1 handles standard CNNs cleanly. V2 makes real-world architectures — ResNets, Transformers, LSTMs — fully expressible.
- 
-### Phase 1 — Architecture Expressibility
-These are the gatekeepers. Without them, no serious architecture is fully buildable.
- 
-- **Skip / Residual connections** — a Merge node that accepts multiple inputs and handles ADD (residual) or CONCAT (dense block). Unlocks ResNet, UNet, DenseNet.
-- **Reshape / Permute layer** — one of the most common shape bug sources in real code. Validates element count on reshape, reorders dims on permute.
-- **Dynamic batch size (`None` / `-1`)** — matches PyTorch's actual default. Null dims propagate correctly through the entire graph.
-### Phase 2 — New Layer Types
-Each follows the same pattern already established in V1 — only the shape math differs.
- 
-- **MultiHeadAttention** — `(B, seq, embed)` → `(B, seq, embed)`. Validates `embed_dim % num_heads == 0`, shows `head_dim` as a live computed field. Unlocks Transformers, ViT, BERT.
-- **LSTM / GRU** — handles `return_sequences` and `bidirectional` flags. Unlocks sequence models and text classifiers.
-- **Embedding** — `(B, seq_len)` → `(B, seq_len, embed_dim)`. The entry point for every NLP model.
-- **LayerNorm** — shape passthrough. Required in every Transformer block.
-### Phase 3 — Product Polish
-- **Shareable URL** — graph serialized → LZ-compressed → base64 → URL hash. One link to share a broken architecture and ask for help.
-- **Keras / TensorFlow export** — same export engine, different string templates. Doubles the audience.
-- **Architecture presets** — one-click load for ResNet block, Transformer encoder, VGG block, LSTM classifier.
+
+## GPU Memory Estimator
+
+Estimate VRAM requirements across GPUs, optimizers, and training configs before you run anything.
+
+```
+Total VRAM = Parameters + Activations + Gradients + Optimizer State
+```
+
+Most estimators only count parameters. NeuralVeil accounts for all four buckets, with per-layer mixed precision and optimizer-aware state sizing.
+
+**Supported GPUs** — A100 40GB · A100 80GB · H100 80GB · RTX 4090 · V100 16GB · V100 32GB  
+**Optimizers** — Adam · AdamW · SGD · Adafactor  
+**Mixed precision** — FP32 / FP16 / BF16 per layer  
+**Gradient checkpointing** — memory vs. compute tradeoff modeling  
+**Multi-GPU** — FSDP / DDP / Tensor Parallel memory breakdown  
+**HuggingFace import** — load directly from a model card  
+**Cloud cost** — $/hr × memory fit across AWS, GCP, Lambda  
+**Config export** — generate a ready-to-run PyTorch training config  
+**Exportable Report** — full memory consumption report ready to be exported in both .csv and .pdf format.  
+
+Available at [neuralveil.dev](https://neuralveil.dev) — no install required.
+
 ---
- 
-## 🛠 Tech Stack
- 
-| Layer | Technology | Why |
-|---|---|---|
-| UI Framework | React 19 + JavaScript | Handles complex, dynamic data structures cleanly |
-| State Management | Zustand | Lightweight graph-like state without Redux boilerplate |
-| Graph / Canvas | React Flow | Purpose-built for node-based drag-and-drop UIs |
-| Math Engine | Custom JS | Shape propagation is pure math — no library needed |
-| Styling | Tailwind CSS | Fast, consistent, no context switching |
-| Error Display | Custom error boundary + inline | Real-time feedback per layer, not a generic modal |
-| Testing | Vitest + Testing Library | Unit-tests shape logic independently from the UI |
- 
+
+## Compared to alternatives
+
+| | NeuralVeil | Netron | TensorBoard |
+|---|---|---|---|
+| Runtime graph capture | ✅ | ❌ | ❌ |
+| Skip connection routing | ✅ | partial | partial |
+| Architecture diff | ✅ | ❌ | ❌ |
+| GPU memory estimator | ✅ | ❌ | ❌ |
+| Multi-GPU memory modeling | ✅ | ❌ | ❌ |
+| Offline / air-gapped | ✅ | ✅ | ❌ |
+| No telemetry | ✅ | ✅ | ❌ |
+
 ---
+
+## Contributing
+
+For the frontend:
+
+```bash
+git clone https://github.com/gyan-js/neuralveil
+cd neuralveil
+npm install 
+npm run dev
+```
+
+For the Neuralveil's CLI
+
+```bash
+git clone https://github.com/gyan-js/neuralveil-cli
+cd neuralveil-cli
+pip install -e
+```
+
+
+
+---
+
+## License
+
+[Apache 2.0](./LICENSE)
