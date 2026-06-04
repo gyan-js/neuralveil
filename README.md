@@ -16,7 +16,7 @@
 [![Python](https://img.shields.io/badge/python-3.8%2B-00E5FF?style=flat-square&labelColor=080C14)](https://pypi.org/project/neuralveil/)
 [![Stars](https://img.shields.io/github/stars/YOUR_USERNAME/neuralveil?style=flat-square&labelColor=080C14&color=39FF14)](https://github.com/YOUR_USERNAME/neuralveil/stargazers)
 
-[neuralveil.dev](https://neuralveil.dev) &nbsp;·&nbsp; [PyPI](https://pypi.org/project/neuralveil/) &nbsp;·&nbsp; [Issues](https://github.com/YOUR_USERNAME/neuralveil/issues)
+[neuralveil.dev](https://neuralveil.dev) &nbsp;·&nbsp; [PyPI](https://pypi.org/project/neuralveil/) &nbsp;·&nbsp; [Issues](https://github.com/gyan-js/neuralveil/issues)
 
 </div>
 
