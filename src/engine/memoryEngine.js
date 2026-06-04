@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Gyan Shresth
+// See LICENSE file in the project root for full license text.
+
+
 import { GPU_VRAM } from './precisionBytes.js'
 
 export function calcLayerParams(layer) {

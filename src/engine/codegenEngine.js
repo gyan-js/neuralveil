@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Gyan Shresth
+// See LICENSE file in the project root for full license text.
 
 export function analyzeConstraints(results, config) {
     const { totals, recommended, gpuFit } = results

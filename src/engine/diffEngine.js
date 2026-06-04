@@ -1,31 +1,6 @@
-/**
- * diffEngine.js — NeuralVeil Architecture Diff Engine
- *
- * Pure module (no side-effects, no store imports).
- * Exports:
- *   diffGraphs(snapshotA, snapshotB) → DiffResult
- *   matchNodes(nodesA, nodesB)       → MatchMap
- *   classifyChanges(nodeA, nodeB)    → Change[]
- */
-
-// ─── Types (JSDoc) ────────────────────────────────────────────────────────────
-/**
- * @typedef {{ param: string, from: any, to: any }} Change
- * @typedef {{
-*   unchanged:    string[],
-*   modified:     { nodeId: string, changes: Change[] }[],
-*   added:        string[],
-*   deleted:      string[],
-*   edgesAdded:   string[],
-*   edgesDeleted: string[],
-* }} DiffResult
-*
-* @typedef {{
-*   id: string, name?: string, timestamp: number,
-*   nodes: object[], edges: object[],
-*   inputShape: number[], format: string,
-* }} Snapshot
-*/
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Gyan Shresth
+// See LICENSE file in the project root for full license text.
 
 function buildTopoOrder(nodes, edges) {
  const order = new Map()
