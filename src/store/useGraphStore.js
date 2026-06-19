@@ -120,6 +120,13 @@ function getNodeType(layerType) {
   return 'layerNode'
 }
 
+function getNodeTypeFromRaw(n) {
+  if (n.type === 'Input') return 'inputNode'
+  if (n.type === 'Merge') return 'mergeNode'
+  if (Array.isArray(n.ops) && n.ops.length > 0) return 'layerGroupNode'
+  return 'layerNode'
+}
+
 function serializeToURL(nodes, edges, inputShape, format) {
   const payload = {
     v: '1',
@@ -217,6 +224,29 @@ export const useGraphStore = create((set, get) => {
     diffEdgeStateMap: new Map(),
     diffDeletedNodes: [],
     diffDeletedEdges: [],
+
+
+    expandedNodes: new Set(),          
+    opVisibility: 'group',             
+    captureBackend: null,              
+    backendVersion: null,             
+    hookFallbackUsed: false,           
+
+    // ── Op-level actions ─────────────────────────────────────────────────
+    toggleExpanded: (nodeId) => {
+      set(state => {
+        const next = new Set(state.expandedNodes)
+        next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId)
+        return { expandedNodes: next }
+      })
+    },
+    isNodeExpanded: (nodeId) => get().expandedNodes.has(nodeId),
+
+    setOpVisibility: (mode) => set({ opVisibility: mode }),
+
+    setBackendInfo: ({ captureBackend, backendVersion, hookFallbackUsed }) => {
+      set({ captureBackend, backendVersion, hookFallbackUsed: !!hookFallbackUsed })
+    },
 
    
     _snapshot: () => {
@@ -369,16 +399,44 @@ export const useGraphStore = create((set, get) => {
         const data = typeof json === 'string' ? JSON.parse(json) : json
         const nodes = data.nodes.map((n, i) => ({
           id: n.id,
-          type: getNodeType(n.type),
-          position: n.position,
+          type: getNodeTypeFromRaw(n),
+          position: n.position || { x: 300, y: 30 + i * 135 },
           deletable: n.type !== 'Input',
-          data: { layerType: n.type, config: n.config || {}, bootDelay: i },
+          data: {
+            layerType: n.type,
+            config: n.config || {},
+            bootDelay: i,
+            ops: Array.isArray(n.ops) ? n.ops : [],
+            opEdges: Array.isArray(n.opEdges) ? n.opEdges : [],
+            verifiedInputShape:  n.verifiedInputShape  ?? null,
+            verifiedOutputShape: n.verifiedOutputShape ?? null,
+            paramCount:          n.paramCount          ?? 0,
+            layerName:           n.layerName           ?? n.id,
+            cliVerified: !!(n.verifiedInputShape || n.verifiedOutputShape),
+          },
         }))
         const edges = data.edges.map(e => ({ ...e, type: 'shapeEdge' }))
         const inputShape = data.inputShape || DEFAULT_INPUT_SHAPE
         const results = propagateGraph(nodes, edges, inputShape)
+
+        // Detect hook-fallback: any node that has ops:[] but is a layerGroupNode type
+        const anyHookFallback = data.nodes.some(
+          n => Array.isArray(n.ops) && n.ops.length === 0 && n.type !== 'Input'
+        )
+
         try { window.history.replaceState(null, '', window.location.pathname) } catch {}
-        set({ nodes, edges, inputShape, format: data.format || 'NCHW', shapeResults: results, selectedNodeId: null })
+        set({
+          nodes,
+          edges,
+          inputShape,
+          format: data.format || 'NCHW',
+          shapeResults: results,
+          selectedNodeId: null,
+          expandedNodes: new Set(),
+          captureBackend:   data.captureBackend   ?? null,
+          backendVersion:   data.backendVersion   ?? null,
+          hookFallbackUsed: data.hookFallbackUsed ?? anyHookFallback,
+        })
       } catch (e) {
         console.error('Failed to load JSON', e)
       }
@@ -403,13 +461,15 @@ export const useGraphStore = create((set, get) => {
 
         const nodes = cliJSON.nodes.map((n, i) => ({
           id: n.id,
-          type: getNodeType(n.type),
+          type: getNodeTypeFromRaw(n),
           position: n.position || { x: 300, y: 30 + i * 135 },
           deletable: n.type !== 'Input',
           data: {
             layerType: n.type,
             config: n.config || {},
             bootDelay: i,
+            ops: Array.isArray(n.ops) ? n.ops : [],
+            opEdges: Array.isArray(n.opEdges) ? n.opEdges : [],
             // CLI-verified shape data
             verifiedInputShape:  n.verifiedInputShape  ?? null,
             verifiedOutputShape: n.verifiedOutputShape ?? null,
@@ -442,6 +502,10 @@ export const useGraphStore = create((set, get) => {
           showCLIBanner: false,
           importErrors: [],
           importWarnings: cliJSON.warnings || [],
+          expandedNodes: new Set(),
+          captureBackend:   cliJSON.captureBackend   ?? null,
+          backendVersion:   cliJSON.backendVersion   ?? null,
+          hookFallbackUsed: cliJSON.hookFallbackUsed ?? false,
         })
 
         if ((cliJSON.warnings || []).length > 0) {
