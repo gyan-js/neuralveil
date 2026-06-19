@@ -12,11 +12,13 @@ import ShapeEdge from './edges/ShapeEdge.jsx'
 import { LAYER_DEFAULTS } from '../constants/layerDefaults.js'
 import { useElkLayout } from '../utils/useElkLayout.js'
 import DiffSummary from './DiffSummary.jsx'
+import LayerGroupNode from './nodes/LayerGroupNode.jsx'
 
 const nodeTypes = {
   layerNode: LayerNode,
   inputNode: InputNode,
   mergeNode: MergeNode,
+  layerGroupNode: LayerGroupNode,
 }
 const edgeTypes = {
   shapeEdge: ShapeEdge,
