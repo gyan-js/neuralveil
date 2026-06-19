@@ -1,10 +1,17 @@
 import { useEffect, useRef } from 'react'
 import ELK from 'elkjs/lib/elk.bundled.js'
+import { useGraphStore } from '../store/useGraphStore.js'
 
 const elk = new ELK()
 
 export const useElkLayout = (rawNodes, rawEdges, onNodesChange) => {
- 
+  const expandedNodes = useGraphStore(s => s.expandedNodes)
+  const opVisibility   = useGraphStore(s => s.opVisibility)
+
+  const expandedKey = opVisibility === 'group'
+    ? Array.from(expandedNodes).sort().join(',')
+    : opVisibility // 'all' / 'none' collapse to a single key, no per-node detail needed
+
   const measuredKey = rawNodes
     .map(n => `${n.id}:${n.measured?.width ?? 0}x${n.measured?.height ?? 0}`)
     .join('|')
@@ -13,7 +20,7 @@ export const useElkLayout = (rawNodes, rawEdges, onNodesChange) => {
 
   useEffect(() => {
     if (!rawNodes.length) return
-    const key = `${rawNodes.length}-${rawEdges.length}-${measuredKey}`
+    const key = `${rawNodes.length}-${rawEdges.length}-${measuredKey}-${expandedKey}`
     if (key === lastKeyRef.current) return
     lastKeyRef.current = key
 
@@ -40,7 +47,6 @@ export const useElkLayout = (rawNodes, rawEdges, onNodesChange) => {
     }
 
     elk.layout(elkGraph).then(result => {
-  
       const changes = result.children
         .map(elkNode => {
           const raw = rawNodes.find(n => n.id === elkNode.id)
@@ -56,6 +62,6 @@ export const useElkLayout = (rawNodes, rawEdges, onNodesChange) => {
 
       if (changes.length > 0) onNodesChange(changes)
     })
-  
-  }, [rawNodes.length, rawEdges.length, measuredKey])
+
+  }, [rawNodes.length, rawEdges.length, measuredKey, expandedKey])
 }
